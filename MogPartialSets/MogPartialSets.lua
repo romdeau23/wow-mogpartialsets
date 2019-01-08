@@ -5,7 +5,7 @@ MogPartialSetsAddon = MogPartialSets
 MogPartialSets.frame = CreateFrame('Frame')
 MogPartialSets.loaded = false
 MogPartialSets.initialized = false
-MogPartialSets.configVersion = 3
+MogPartialSets.configVersion = 4
 MogPartialSets.updateTimer = nil
 MogPartialSets.eventHandlers = {
     ADDON_LOADED = 'onAddonLoaded',
@@ -13,6 +13,8 @@ MogPartialSets.eventHandlers = {
     TRANSMOGRIFY_OPEN = 'onTransmogrifyAction',
     GET_ITEM_INFO_RECEIVED = 'onItemInfoReceived',
 }
+MogPartialSets.apiOverrides = {}
+MogPartialSets.isValidSetCache = {}
 
 function MogPartialSets:registerEvents()
     for event, _ in pairs(self.eventHandlers) do
@@ -29,10 +31,27 @@ end
 function MogPartialSets:onAddonLoaded(loadedAddonName)
     if loadedAddonName == addonName then
         self:initConfiguration()
+        self:prepareGlobalApiOverrides()
         self.loaded = true
 
         return true
     end
+end
+
+function MogPartialSets:prepareApiOverride(apiTable, key, name)
+    self.apiOverrides[name] = {
+        apiTable = apiTable,
+        key = key,
+        original = apiTable[key],
+    }
+end
+
+function MogPartialSets:overrideApi(name, newFunc)
+    self.apiOverrides[name].apiTable[self.apiOverrides[name].key] = newFunc
+end
+
+function MogPartialSets:callOriginalApi(name, ...)
+    return self.apiOverrides[name].original(...)
 end
 
 function MogPartialSets:onTransmogrifyAction()
@@ -77,6 +96,7 @@ function MogPartialSets:setDefaultConfiguration()
         onlyFavorite = false,
         favoriteVariants = false,
         showUnusable = false,
+        showHidden = false,
     }
 end
 
@@ -90,6 +110,9 @@ function MogPartialSets:migrateConfiguration(from)
             elseif from == 2 then
                 -- v2 => v3
                 MogPartialSetsAddonConfig.showUnusable = false
+            elseif from == 3 then
+                -- v2 => v4
+                MogPartialSetsAddonConfig.showHidden = false
             end
 
             from = from + 1
@@ -104,18 +127,57 @@ function MogPartialSets:notifyConfigUpdated()
     self:updateUi()
 end
 
+function MogPartialSets:prepareGlobalApiOverrides()
+    self:prepareApiOverride(C_TransmogSets, 'HasUsableSets', 'hasUsableSets')
+    self:prepareApiOverride(C_TransmogSets, 'GetUsableSets', 'getUsableSets')
+    self:prepareApiOverride(C_TransmogSets, 'GetSetSources', 'getSetSources')
+    self:prepareApiOverride(C_TransmogSets, 'GetSetInfo', 'getSetInfo')
+    self:prepareApiOverride(C_TransmogCollection, 'GetSourceInfo', 'getSourceInfo')
+end
+
 function MogPartialSets:getAvailableSets()
     local sets = {}
 
-    for _, set in ipairs(C_TransmogSets.GetBaseSets()) do
-        table.insert(sets, set)
+    if MogPartialSetsAddonConfig.showHidden then
+        -- try to find all valid sets
+        for _, set in ipairs(C_TransmogSets.GetAllSets()) do
+            if self:isValidSet(set.setID) then
+                sets[set.setID] = set
+            end
+        end
+    else
+        -- find base sets and their variants
+        for _, set in ipairs(C_TransmogSets.GetBaseSets()) do
+            sets[set.setID] = set
 
-        for _, setVariant in ipairs(C_TransmogSets.GetVariantSets(set.setID)) do
-            table.insert(sets, setVariant)
+            for _, setVariant in ipairs(C_TransmogSets.GetVariantSets(set.setID)) do
+                sets[setVariant.setID] = setVariant
+            end
+        end
+    end
+    
+    return sets
+end
+
+function MogPartialSets:isValidSet(setId)
+    if self.isValidSetCache[setId] == nil then
+        for sourceId in pairs(self:callOriginalApi('getSetSources', setId)) do
+            local sourceInfo = self:callOriginalApi('getSourceInfo', sourceId)
+            local slot = C_Transmog.GetSlotForInventoryType(sourceInfo.invType)
+            local slotSources = C_TransmogSets.GetSourcesForSlot(setId, slot)
+            local index = WardrobeCollectionFrame_GetDefaultSourceIndex(slotSources, sourceId)
+
+            if slotSources[index] == nil then
+                self.isValidSetCache[setId] = false
+            end
+        end
+
+        if self.isValidSetCache[setId] == nil then
+            self.isValidSetCache[setId] = true
         end
     end
 
-    return sets
+    return self.isValidSetCache[setId]
 end
 
 function MogPartialSets:getSetProgress(setId)
@@ -186,9 +248,13 @@ function MogPartialSets:setHasFavoriteVariant(set, availableSets)
     end
 
     -- check variants of the base set
-    for _, set in ipairs(C_TransmogSets.GetVariantSets(baseSetId)) do
-        if set.favorite then
-            return true
+    local variants = C_TransmogSets.GetVariantSets(baseSetId)
+
+    if type(variants) == 'table' then
+        for _, set in ipairs(variants) do
+            if set.favorite then
+                return true
+            end
         end
     end
 
@@ -218,25 +284,19 @@ function MogPartialSets:getProgressColor(current, max)
 end
 
 function MogPartialSets:initOverrides()
-    local hasUsableSetsOriginal = C_TransmogSets.HasUsableSets
-    local getUsableSetsOriginal = C_TransmogSets.GetUsableSets
     local gettingPartialUsableSets = true
-    local getSetSourcesOriginal = C_TransmogSets.GetSetSources
-    local updateSetsOriginal = WardrobeCollectionFrame.SetsTransmogFrame.UpdateSets
     local updatingTransmogSets = false
-    local getSetInfoOriginal = C_TransmogSets.GetSetInfo
-    local getSourceInfoOriginal = C_TransmogCollection.GetSourceInfo
 
     -- extend C_TransmogSets.HasUsableSets
-    C_TransmogSets.HasUsableSets = function ()
-        return hasUsableSetsOriginal() or #C_TransmogSets.GetUsableSets() > 0
-    end
+    self:overrideApi('hasUsableSets', function ()
+        return self:callOriginalApi('hasUsableSets') or #C_TransmogSets.GetUsableSets() > 0
+    end)
 
     -- extend C_TransmogSets.GetUsableSets
-    C_TransmogSets.GetUsableSets = function ()
+    self:overrideApi('getUsableSets', function ()
         -- call original function if partial sets are disabled
         if not MogPartialSetsAddonConfig.enabled then
-            return getUsableSetsOriginal()
+            return self:callOriginalApi('getUsableSets')
         end
 
         -- find partial sets
@@ -294,29 +354,31 @@ function MogPartialSets:initOverrides()
         )
 
         return usableSets
-    end
+    end)
 
     -- hook SetsTransmogFrame.UpdateSets
-    WardrobeCollectionFrame.SetsTransmogFrame.UpdateSets = function (self)
+    self:prepareApiOverride(WardrobeCollectionFrame.SetsTransmogFrame, 'UpdateSets', 'updateSets')
+
+    self:overrideApi('updateSets', function (frameSelf)
         MogPartialSets:tryFinally(
             function ()
                 updatingTransmogSets = true
-                updateSetsOriginal(self)
+                self:callOriginalApi('updateSets', frameSelf)
             end,
             function ()
                 updatingTransmogSets = false
             end
         )
-    end
+    end)
 
     -- extend C_TransmogSets.GetSetSources
-    C_TransmogSets.GetSetSources = function (setId)
+    self:overrideApi('getSetSources', function (setId)
         -- if transmog sets are being updated, return only the collected pieces
         -- so that the models reflect the missing pieces
         if updatingTransmogSets and not gettingPartialUsableSets then
             local collectedSources = {}
 
-            for sourceId, collected in pairs(getSetSourcesOriginal(setId)) do
+            for sourceId, collected in pairs(self:callOriginalApi('getSetSources', setId)) do
                 if collected then
                     collectedSources[sourceId] = true
                 end
@@ -326,12 +388,12 @@ function MogPartialSets:initOverrides()
         end
 
         -- otherwise behave as normal
-        return getSetSourcesOriginal(setId)
-    end
+        return self:callOriginalApi('getSetSources', setId)
+    end)
 
     -- extend C_TransmogSets.GetSetInfo
-    C_TransmogSets.GetSetInfo = function (setId)
-        local set = getSetInfoOriginal(setId)
+    self:overrideApi('getSetInfo', function (setId)
+        local set = self:callOriginalApi('getSetInfo', setId)
 
         if set and self:isTransmogrifyingSets() then
             local collectedSlots, usableSlots, totalSlots = self:getSetProgress(setId)
@@ -355,11 +417,11 @@ function MogPartialSets:initOverrides()
         end
 
         return set
-    end
+    end)
 
     -- hook C_TransmogCollection.GetSourceInfo
-    C_TransmogCollection.GetSourceInfo = function (sourceId)
-        local source = getSourceInfoOriginal(sourceId)
+    self:overrideApi('getSourceInfo', function (sourceId)
+        local source = self:callOriginalApi('getSourceInfo', sourceId)
 
         -- fill in missing quality on few set items so set tooltips don't get stuck on "retrieving item information"
         if source and source.quality == nil and self:isTransmogrifyingSets() then
@@ -367,7 +429,7 @@ function MogPartialSets:initOverrides()
         end
 
         return source
-    end
+    end)
 
     -- print info
     print(string.format(
@@ -414,6 +476,10 @@ function MogPartialSets:updateUi()
         MogPartialSetsFilterShowUnusableButton:SetAlpha(1)
         MogPartialSetsFilterShowUnusableButton:Enable()
         MogPartialSetsFilterShowUnusableText:SetAlpha(1)
+
+        MogPartialSetsFilterShowHiddenButton:SetAlpha(1)
+        MogPartialSetsFilterShowHiddenButton:Enable()
+        MogPartialSetsFilterShowHiddenText:SetAlpha(1)
     else
         MogPartialSetsFilterOnlyFavoriteButton:SetAlpha(0.5)
         MogPartialSetsFilterOnlyFavoriteButton:Disable()
@@ -426,6 +492,10 @@ function MogPartialSets:updateUi()
         MogPartialSetsFilterShowUnusableButton:SetAlpha(0.5)
         MogPartialSetsFilterShowUnusableButton:Disable()
         MogPartialSetsFilterShowUnusableText:SetAlpha(0.5)
+
+        MogPartialSetsFilterShowHiddenButton:SetAlpha(0.5)
+        MogPartialSetsFilterShowHiddenButton:Disable()
+        MogPartialSetsFilterShowHiddenText:SetAlpha(0.5)
     end
 
     if MogPartialSetsAddonConfig.enabled and MogPartialSetsAddonConfig.onlyFavorite then

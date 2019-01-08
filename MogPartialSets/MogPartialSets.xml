@@ -28,7 +28,7 @@
     </Button>
 
     <Frame name="MogPartialSetsFilter" hidden="true" frameStrata="DIALOG">
-        <Size x="170" y="164"/>
+        <Size x="170" y="187"/>
         <Anchors>
             <Anchor point="TOPLEFT" relativePoint="TOPRIGHT" relativeTo="MogPartialSetsFilterButton" x="-10" y="-5"/>
         </Anchors>
@@ -89,12 +89,18 @@
                         <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-85"/>
                     </Anchors>
                 </FontString>
+                <FontString name="$parentShowHiddenText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="show hidden">
+                    <Size x="0" y="10"/>
+                    <Anchors>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-108"/>
+                    </Anchors>
+                </FontString>
                 <FontString name="$parentMaxMissingPiecesText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="max. missing pieces">
                     <Size>
                         <AbsDimension x="0" y="10"/>
                     </Size>
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-108"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-131"/>
                     </Anchors>
                 </FontString>
             </Layer>
@@ -152,12 +158,25 @@
                     </OnClick>
                 </Scripts>
             </CheckButton>
+            <CheckButton name="$parentShowHiddenButton" inherits="OptionsCheckButtonTemplate" checked="true">
+                <Size x="24" y="24"/>
+                <Anchors>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-104"/>
+                </Anchors>
+                <Scripts>
+                    <OnShow>self:SetChecked(MogPartialSetsAddonConfig.showHidden)</OnShow>
+                    <OnClick>
+                        MogPartialSetsAddonConfig.showHidden = self:GetChecked()
+                        MogPartialSetsAddon:notifyConfigUpdated()
+                    </OnClick>
+                </Scripts>
+            </CheckButton>
             <EditBox name="$parentMaxMissingPiecesEditBox" inherits="InputBoxTemplate" autoFocus="false" letters="1" numeric="true" propagateKeyBoardInput="false">
                 <Size>
                     <AbsDimension x="13" y="20"/>
                 </Size>
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="20" y="-104"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="20" y="-127"/>
                 </Anchors>
                 <Scripts>
                     <OnShow>self:SetText(tostring(MogPartialSetsAddonConfig.maxMissingPieces))</OnShow>
@@ -176,7 +195,7 @@
             <Button name="$parentOkButton" inherits="UIPanelButtonTemplate" text="OK">
                 <Size x="145" y="20"/>
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-131"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-154"/>
                 </Anchors>
                 <Scripts>
                     <OnClick>MogPartialSetsFilter:Hide()</OnClick>
