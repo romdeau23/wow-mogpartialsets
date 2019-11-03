@@ -407,7 +407,7 @@ function MogPartialSets:initOverrides()
 
                 set.label = string.format(
                     '%s\n|cff808080(collected:|r |c%s%d/%d|r|cff808080%s|cff808080)|r',
-                    set.label,
+                    set.label or '',
                     self:getProgressColor(collectedSlots, totalSlots),
                     collectedSlots,
                     totalSlots,
