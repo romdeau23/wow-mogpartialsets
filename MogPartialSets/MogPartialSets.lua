@@ -337,7 +337,7 @@ function MogPartialSets:initOverrides()
                         and (
                             not hasSearch
                             or self:stringMatchesSearch(set.name, search)
-                            or self:stringMatchesSearch(set.label, search)
+                            or set.label ~= nil and self:stringMatchesSearch(set.label, search)
                         )
                     then
                         set.collected = true
