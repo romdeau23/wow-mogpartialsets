@@ -28,7 +28,7 @@
     </Button>
 
     <Frame name="MogPartialSetsFilter" hidden="true" frameStrata="DIALOG">
-        <Size x="170" y="187"/>
+        <Size x="170" y="164"/>
         <Anchors>
             <Anchor point="TOPLEFT" relativePoint="TOPRIGHT" relativeTo="MogPartialSetsFilterButton" x="-10" y="-5"/>
         </Anchors>
@@ -65,7 +65,7 @@
         </Scripts>
         <Layers>
             <Layer level="ARTWORK">
-                <FontString name="$parentToggleText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="show incomplete sets">
+                <FontString name="$parentToggleText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="show partial sets">
                     <Size x="0" y="10"/>
                     <Anchors>
                         <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-16"/>
@@ -83,16 +83,10 @@
                         <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-62"/>
                     </Anchors>
                 </FontString>
-                <FontString name="$parentShowUnusableText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="show unusable">
+                <FontString name="$parentIgnoreBracersText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="ignore bracers">
                     <Size x="0" y="10"/>
                     <Anchors>
                         <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-85"/>
-                    </Anchors>
-                </FontString>
-                <FontString name="$parentShowHiddenText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="show hidden">
-                    <Size x="0" y="10"/>
-                    <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-108"/>
                     </Anchors>
                 </FontString>
                 <FontString name="$parentMaxMissingPiecesText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="max. missing pieces">
@@ -100,7 +94,7 @@
                         <AbsDimension x="0" y="10"/>
                     </Size>
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-131"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-108"/>
                     </Anchors>
                 </FontString>
             </Layer>
@@ -145,28 +139,15 @@
                     </OnClick>
                 </Scripts>
             </CheckButton>
-            <CheckButton name="$parentShowUnusableButton" inherits="OptionsCheckButtonTemplate" checked="true">
+            <CheckButton name="$parentIgnoreBracersButton" inherits="OptionsCheckButtonTemplate" checked="true">
                 <Size x="24" y="24"/>
                 <Anchors>
                     <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-81"/>
                 </Anchors>
                 <Scripts>
-                    <OnShow>self:SetChecked(MogPartialSetsAddonConfig.showUnusable)</OnShow>
+                    <OnShow>self:SetChecked(MogPartialSetsAddonConfig.ignoreBracers)</OnShow>
                     <OnClick>
-                        MogPartialSetsAddonConfig.showUnusable = self:GetChecked()
-                        MogPartialSetsAddon:notifyConfigUpdated()
-                    </OnClick>
-                </Scripts>
-            </CheckButton>
-            <CheckButton name="$parentShowHiddenButton" inherits="OptionsCheckButtonTemplate" checked="true">
-                <Size x="24" y="24"/>
-                <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-104"/>
-                </Anchors>
-                <Scripts>
-                    <OnShow>self:SetChecked(MogPartialSetsAddonConfig.showHidden)</OnShow>
-                    <OnClick>
-                        MogPartialSetsAddonConfig.showHidden = self:GetChecked()
+                        MogPartialSetsAddonConfig.ignoreBracers = self:GetChecked()
                         MogPartialSetsAddon:notifyConfigUpdated()
                     </OnClick>
                 </Scripts>
@@ -176,7 +157,7 @@
                     <AbsDimension x="13" y="20"/>
                 </Size>
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="20" y="-127"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="20" y="-104"/>
                 </Anchors>
                 <Scripts>
                     <OnShow>self:SetText(tostring(MogPartialSetsAddonConfig.maxMissingPieces))</OnShow>
@@ -193,12 +174,21 @@
                 </Scripts>
             </EditBox>
             <Button name="$parentOkButton" inherits="UIPanelButtonTemplate" text="OK">
-                <Size x="145" y="20"/>
+                <Size x="71" y="20"/>
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-154"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-130"/>
                 </Anchors>
                 <Scripts>
                     <OnClick>MogPartialSetsFilter:Hide()</OnClick>
+                </Scripts>
+            </Button>
+            <Button name="$parentRefreshButton" inherits="UIPanelButtonTemplate" text="Refresh">
+                <Size x="71" y="20"/>
+                <Anchors>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="87" y="-130"/>
+                </Anchors>
+                <Scripts>
+                    <OnClick>MogPartialSetsAddon:forceRefresh()</OnClick>
                 </Scripts>
             </Button>
         </Frames>
