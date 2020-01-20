@@ -194,7 +194,7 @@ function MogPartialSets:getSetProgress(setId)
         collectedSlots = 0
         totalSlots = 0
 
-        for sourceId in pairs(sources) do
+        for sourceId, collected in pairs(sources) do
             local sourceInfo = self:getSourceInfo(sourceId)
 
             if
@@ -203,7 +203,7 @@ function MogPartialSets:getSetProgress(setId)
             then
                 totalSlots = totalSlots + 1
 
-                if self:isUsableSource(sourceId) then
+                if collected or self:isUsableSource(sourceId) then
                     collectedSlots = collectedSlots + 1
                 end
             end
@@ -224,8 +224,8 @@ end
 function MogPartialSets:getCollectedSetSources(setId)
     local sources = {}
 
-    for sourceId in pairs(self:getSetSources(setId)) do
-        if self:isUsableSource(sourceId) then
+    for sourceId, collected in pairs(self:getSetSources(setId)) do
+        if collected or self:isUsableSource(sourceId) then
             sources[sourceId] = true
         end
     end
