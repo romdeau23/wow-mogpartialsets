@@ -5,7 +5,7 @@ MogPartialSetsAddon = MogPartialSets
 MogPartialSets.frame = CreateFrame('Frame')
 MogPartialSets.loaded = false
 MogPartialSets.initialized = false
-MogPartialSets.configVersion = 5
+MogPartialSets.configVersion = 6
 MogPartialSets.updateTimer = nil
 MogPartialSets.pendingModelUpdate = false
 MogPartialSets.eventHandlers = {
@@ -107,7 +107,7 @@ function MogPartialSets:setDefaultConfiguration()
         maxMissingPieces = 2,
         onlyFavorite = false,
         favoriteVariants = false,
-        ignoreBracers = false,
+        ignoredSlotMap = {},
     }
 end
 
@@ -123,6 +123,15 @@ function MogPartialSets:migrateConfiguration(from)
                 MogPartialSetsAddonConfig.showHidden = nil
                 MogPartialSetsAddonConfig.showUnusable = nil
                 MogPartialSetsAddonConfig.ignoreBracers = false
+            elseif from == 5 then
+                -- v5 => v6
+                MogPartialSetsAddonConfig.ignoredSlotMap = {}
+
+                if MogPartialSetsAddonConfig.ignoreBracers then
+                    MogPartialSetsAddonConfig.ignoredSlotMap[Enum.InventoryType.IndexWristType] = true
+                end
+
+                MogPartialSetsAddonConfig.ignoreBracers = nil
             end
 
             from = from + 1
@@ -149,6 +158,20 @@ end
 function MogPartialSets:prepareWardrobeApiOverrides()
     self:prepareApiOverride(WardrobeCollectionFrame.SetsTransmogFrame, 'UpdateSets', 'UpdateSets')
     self:prepareApiOverride(WardrobeCollectionFrame.SetsTransmogFrame, 'LoadSet', 'LoadSet')
+end
+
+function MogPartialSets:setIgnoredSlot(invType, isIgnored)
+    if isIgnored then
+        MogPartialSetsAddonConfig.ignoredSlotMap[invType] = true
+    else
+        MogPartialSetsAddonConfig.ignoredSlotMap[invType] = nil
+    end
+
+    self:notifyConfigUpdated()
+end
+
+function MogPartialSets:isIgnoredSlot(invType)
+    return MogPartialSetsAddonConfig.ignoredSlotMap[invType] ~= nil
 end
 
 function MogPartialSets:getAvailableSets()
@@ -197,10 +220,7 @@ function MogPartialSets:getSetProgress(setId)
         for sourceId, collected in pairs(sources) do
             local sourceInfo = self:getSourceInfo(sourceId)
 
-            if
-                not MogPartialSetsAddonConfig.ignoreBracers
-                or sourceInfo.invType ~= Enum.InventoryType.IndexWristType + 1
-            then
+            if not self:isIgnoredSlot(sourceInfo.invType - 1) then
                 totalSlots = totalSlots + 1
 
                 if collected or self:isUsableSource(sourceId) then
@@ -363,10 +383,7 @@ function MogPartialSets:initOverrides()
                     if
                         totalSlots
                         and collectedSlots > 0
-                        and (
-                            MogPartialSetsAddonConfig.maxMissingPieces <= 0
-                            or (totalSlots - collectedSlots) <= MogPartialSetsAddonConfig.maxMissingPieces
-                        )
+                        and (totalSlots - collectedSlots) <= MogPartialSetsAddonConfig.maxMissingPieces
                         and (
                             not MogPartialSetsAddonConfig.onlyFavorite
                             or (
@@ -528,8 +545,15 @@ function MogPartialSets:updateUi()
         MogPartialSetsFilterFavoriteVariantsText,
         MogPartialSetsFilterMaxMissingPiecesEditBox,
         MogPartialSetsFilterMaxMissingPiecesText,
+        MogPartialSetsFilterIgnoredSlotsText,
+        MogPartialSetsFilterIgnoreHeadButton,
+        MogPartialSetsFilterIgnoreHeadText,
+        MogPartialSetsFilterIgnoreCloakButton,
+        MogPartialSetsFilterIgnoreCloakText,
         MogPartialSetsFilterIgnoreBracersButton,
         MogPartialSetsFilterIgnoreBracersText,
+        MogPartialSetsFilterIgnoreBootsButton,
+        MogPartialSetsFilterIgnoreBootsText,
         MogPartialSetsFilterRefreshButton,
     }
 
