@@ -5,7 +5,7 @@ MogPartialSetsAddon = MogPartialSets
 MogPartialSets.frame = CreateFrame('Frame')
 MogPartialSets.loaded = false
 MogPartialSets.initialized = false
-MogPartialSets.configVersion = 6
+MogPartialSets.configVersion = 7
 MogPartialSets.updateTimer = nil
 MogPartialSets.pendingModelUpdate = false
 MogPartialSets.pendingInvalidSetCacheClear = false
@@ -109,6 +109,7 @@ function MogPartialSets:setDefaultConfiguration()
         onlyFavorite = false,
         favoriteVariants = false,
         ignoredSlotMap = {},
+        splash = true,
     }
 end
 
@@ -133,6 +134,8 @@ function MogPartialSets:migrateConfiguration(from)
                 end
 
                 MogPartialSetsAddonConfig.ignoreBracers = nil
+            elseif from == 6 then
+                MogPartialSetsAddonConfig.splash = true
             end
 
             from = from + 1
@@ -508,12 +511,14 @@ function MogPartialSets:initOverrides()
         return source
     end)
 
-    print(string.format(
-        '|cffffd700<%s>|r |cff808080(v%s by %s)|r |cff4747ffloaded|r',
-        addonName,
-        GetAddOnMetadata(addonName, 'Version'),
-        GetAddOnMetadata(addonName, 'Author')
-    ))
+    if MogPartialSetsAddonConfig.splash then
+        print(string.format(
+            '|cffffd700<%s>|r |cff808080(v%s by %s)|r |cff4747ffloaded|r',
+            addonName,
+            GetAddOnMetadata(addonName, 'Version'),
+            GetAddOnMetadata(addonName, 'Author')
+        ))
+    end
 end
 
 function MogPartialSets:initUi()
@@ -554,6 +559,8 @@ function MogPartialSets:updateUi()
         MogPartialSetsFilterFavoriteVariantsText,
         MogPartialSetsFilterMaxMissingPiecesEditBox,
         MogPartialSetsFilterMaxMissingPiecesText,
+        MogPartialSetsFilterSplashText,
+        MogPartialSetsFilterSplashButton,
         MogPartialSetsFilterIgnoredSlotsText,
         MogPartialSetsFilterIgnoreHeadButton,
         MogPartialSetsFilterIgnoreHeadText,
