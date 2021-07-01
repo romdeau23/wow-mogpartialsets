@@ -1,6 +1,6 @@
-## Interface: 90005
+## Interface: 90100
 ## Title: MogPartialSets
-## Version: 0.7.2
+## Version: 0.8.0
 ## Author: romdeau23
 ## Notes: Show incomplete appearance sets in the transmogrification dialog
 ## SavedVariables: MogPartialSetsAddonConfig

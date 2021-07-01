@@ -18,7 +18,7 @@ MogPartialSets.eventHandlers = {
 }
 MogPartialSets.apiOverrides = {}
 MogPartialSets.validSetCache = {}
-MogPartialSets.setSourceCache = {}
+MogPartialSets.setAppearanceCache = {}
 MogPartialSets.sourceInfoCache = {}
 MogPartialSets.usableSourceCache = {}
 
@@ -75,13 +75,13 @@ end
 
 function MogPartialSets:onItemInfoReceived(itemId)
     if self.loaded and self.initialized and itemId > 0 then
-        self:refreshAfter(0.5, true)
+        self:delayedRefresh(true)
     end
 end
 
 function MogPartialSets:onTransmogCollectionItemUpdate()
     if self.loaded and self.initialized then
-        self:refreshAfter(0.5, false, true)
+        self:delayedRefresh(false, true)
     end
 end
 
@@ -153,15 +153,17 @@ end
 function MogPartialSets:prepareGlobalApiOverrides()
     self:prepareApiOverride(C_TransmogSets, 'HasUsableSets')
     self:prepareApiOverride(C_TransmogSets, 'GetUsableSets')
-    self:prepareApiOverride(C_TransmogSets, 'GetSetSources')
+    self:prepareApiOverride(C_TransmogSets, 'GetSetPrimaryAppearances')
     self:prepareApiOverride(C_TransmogSets, 'GetSetInfo')
     self:prepareApiOverride(C_TransmogSets, 'GetSourcesForSlot')
+    self:prepareApiOverride(C_TransmogSets, 'GetSourceIDsForSlot')
     self:prepareApiOverride(C_TransmogCollection, 'GetSourceInfo')
 end
 
 function MogPartialSets:prepareWardrobeApiOverrides()
     self:prepareApiOverride(WardrobeCollectionFrame.SetsTransmogFrame, 'UpdateSets', 'UpdateSets')
     self:prepareApiOverride(WardrobeCollectionFrame.SetsTransmogFrame, 'LoadSet', 'LoadSet')
+    self:prepareApiOverride(WardrobeCollectionFrame.SetsTransmogFrame, 'Refresh', 'RefreshSets')
 end
 
 function MogPartialSets:setIgnoredSlot(invType, isIgnored)
@@ -192,14 +194,15 @@ end
 
 function MogPartialSets:isValidSet(setId)
     if self.validSetCache[setId] == nil then
-        for sourceId in pairs(self:getCollectedSetSources(setId)) do
-            local valid = false
-            local sourceInfo = self:callOriginalApi('GetSourceInfo', sourceId)
+        local valid = false
+
+        for _, appearanceInfo in ipairs(self:getCollectedSetAppearances(setId)) do
+            local sourceInfo = self:callOriginalApi('GetSourceInfo', appearanceInfo.appearanceID)
 
             if sourceInfo then
                 local slot = C_Transmog.GetSlotForInventoryType(sourceInfo.invType)
                 local slotSources = C_TransmogSets.GetSourcesForSlot(setId, slot)
-                local index = WardrobeCollectionFrame_GetDefaultSourceIndex(slotSources, sourceId)
+                local index = CollectionWardrobeUtil.GetDefaultSourceIndex(slotSources, appearanceInfo.appearanceID)
 
                 if slotSources[index] then
                     valid = true
@@ -207,14 +210,11 @@ function MogPartialSets:isValidSet(setId)
             end
 
             if not valid then
-                self.validSetCache[setId] = false
                 break
             end
         end
 
-        if self.validSetCache[setId] == nil then
-            self.validSetCache[setId] = true
-        end
+        self.validSetCache[setId] = valid
     end
 
     return self.validSetCache[setId]
@@ -223,19 +223,19 @@ end
 function MogPartialSets:getSetProgress(setId)
     local collectedSlots
     local totalSlots
-    local sources = self:getSetSources(setId)
+    local appearances = self:getSetAppearances(setId)
 
-    if sources then
+    if appearances then
         collectedSlots = 0
         totalSlots = 0
 
-        for sourceId, collected in pairs(sources) do
-            local sourceInfo = self:getSourceInfo(sourceId)
+        for _, appearanceInfo in ipairs(appearances) do
+            local sourceInfo = self:getCachedSourceInfo(appearanceInfo.appearanceID)
 
             if sourceInfo and not self:isIgnoredSlot(sourceInfo.invType - 1) then
                 totalSlots = totalSlots + 1
 
-                if collected or self:isUsableSource(sourceId) then
+                if appearanceInfo.collected or self:getUsableSource(appearanceInfo.appearanceID) ~= nil then
                     collectedSlots = collectedSlots + 1
                 end
             end
@@ -245,27 +245,33 @@ function MogPartialSets:getSetProgress(setId)
     return collectedSlots, totalSlots
 end
 
-function MogPartialSets:getSetSources(setId)
-    if self.setSourceCache[setId] == nil then
-        self.setSourceCache[setId] = self:callOriginalApi('GetSetSources', setId)
+function MogPartialSets:getSetAppearances(setId)
+    if self.setAppearanceCache[setId] == nil then
+        self.setAppearanceCache[setId] = self:callOriginalApi('GetSetPrimaryAppearances', setId)
     end
 
-    return self.setSourceCache[setId]
+    return self.setAppearanceCache[setId]
 end
 
-function MogPartialSets:getCollectedSetSources(setId)
-    local sources = {}
+function MogPartialSets:getCollectedSetAppearances(setId)
+    local appearances = {}
 
-    for sourceId, collected in pairs(self:getSetSources(setId)) do
-        if collected or self:isUsableSource(sourceId) then
-            sources[sourceId] = true
+    for _, appearanceInfo in ipairs(self:getSetAppearances(setId)) do
+        if appearanceInfo.collected then
+            table.insert(appearances, appearanceInfo)
+        else
+            local usableAppearance = self:getUsableSource(appearanceInfo.appearanceID)
+
+            if usableAppearance ~= nil then
+                table.insert(appearances, {collected = true, appearanceID = usableAppearance.sourceID})
+            end
         end
     end
 
-    return sources
+    return appearances
 end
 
-function MogPartialSets:getSourceInfo(sourceId)
+function MogPartialSets:getCachedSourceInfo(sourceId)
     if self.sourceInfoCache[sourceId] == nil then
         self.sourceInfoCache[sourceId] = self:callOriginalApi('GetSourceInfo', sourceId)
     end
@@ -273,22 +279,22 @@ function MogPartialSets:getSourceInfo(sourceId)
     return self.sourceInfoCache[sourceId]
 end
 
-function MogPartialSets:isUsableSource(sourceId)
-    if self.usableSourceCache[sourceId] == nil then
-        local usable = false
-        local loaded = true
-        local sourceInfo = self:getSourceInfo(sourceId)
+function MogPartialSets:getUsableSource(appearanceId)
+    if self.usableSourceCache[appearanceId] == nil then
+        local usableSource
+        local loaded = false
+        local baseSourceInfo = self:getCachedSourceInfo(appearanceId)
 
-        if sourceInfo then
-            local appearanceSources = C_TransmogCollection.GetAppearanceSources(sourceInfo.visualID)
+        if baseSourceInfo then
+            local appearanceSources = C_TransmogCollection.GetAppearanceSources(baseSourceInfo.visualID)
 
             if appearanceSources then
-                for _, appearanceInfo in pairs(appearanceSources) do
+                for _, sourceInfo in pairs(appearanceSources) do
                     -- check isCollected, useError and make sure the item is loaded
                     -- (useError may only be available after the item has been loaded)
-                    if appearanceInfo.isCollected and appearanceInfo.useError == nil and not appearanceInfo.isHideVisual then
-                        usable = true
-                        loaded = GetItemInfo(appearanceInfo.itemID) ~= nil
+                    if sourceInfo.isCollected and sourceInfo.useError == nil then
+                        usableSource = sourceInfo
+                        loaded = GetItemInfo(sourceInfo.itemID) ~= nil
                         break
                     end
                 end
@@ -297,13 +303,13 @@ function MogPartialSets:isUsableSource(sourceId)
 
         if not loaded then
             -- don't cache items that aren't fully loaded
-            return usable
+            return usableSource
         end
 
-        self.usableSourceCache[sourceId] = usable
+        self.usableSourceCache[appearanceId] = {source = usableSource}
     end
 
-    return self.usableSourceCache[sourceId]
+    return self.usableSourceCache[appearanceId].source
 end
 
 function MogPartialSets:setHasFavoriteVariant(set, availableSets)
@@ -337,7 +343,7 @@ function MogPartialSets:setHasFavoriteVariant(set, availableSets)
 end
 
 function MogPartialSets:isTransmogrifyingSets()
-    return WardrobeCollectionFrame:IsVisible() and WardrobeCollectionFrame.selectedTab == 2 and WardrobeFrame_IsAtTransmogrifier()
+    return WardrobeCollectionFrame:IsVisible() and WardrobeCollectionFrame.selectedTab == 2 and C_Transmog.IsAtTransmogNPC()
 end
 
 function MogPartialSets:normalizeSearchString(string)
@@ -449,15 +455,18 @@ function MogPartialSets:initOverrides()
         )
     end)
 
-    self:overrideApi('GetSetSources', function (setId)
-        -- return only collected sources for transmogrification
-        -- so that the models reflect the missing pieces
+    self:overrideApi('RefreshSets', function (frameSelf)
+        self:callOriginalApi('RefreshSets', frameSelf, false) -- don't reset
+    end)
+
+    self:overrideApi('GetSetPrimaryAppearances', function (setId)
+        -- return only collected apperances when loading a set or updating the list
         if not gettingUsableSets and (updatingTransmogSets or loadingSet) then
-            return self:getCollectedSetSources(setId)
+            return self:getCollectedSetAppearances(setId)
         end
 
-        -- return original sources if not transmogrifying or
-        return self:getSetSources(setId)
+        -- return original sources
+        return self:getSetAppearances(setId)
     end)
 
     self:overrideApi('GetSetInfo', function (setId)
@@ -482,14 +491,22 @@ function MogPartialSets:initOverrides()
 
     self:overrideApi('GetSourcesForSlot', function (setId, slot)
         local slotSources = self:callOriginalApi('GetSourcesForSlot', setId, slot)
+        local hasCollectedSource = false
 
-        if not self:isTransmogrifyingSets() or #slotSources ~= 0 then
+        for _, sourceInfo in ipairs(slotSources) do
+            if sourceInfo.isCollected and sourceInfo.useError == nil then
+                hasCollectedSource = true
+                break
+            end
+        end
+
+        if not self:isTransmogrifyingSets() or hasCollectedSource then
             return slotSources
         end
 
-        -- fill in missing slot sources (e.g. sets that are hidden until completed)
-        for sourceId in pairs(self:getCollectedSetSources(setId)) do
-            local sourceInfo = self:getSourceInfo(sourceId)
+        -- try to add alternative sources from the set
+        for _, appearance in pairs(self:getCollectedSetAppearances(setId)) do
+            local sourceInfo =  self:callOriginalApi('GetSourceInfo', appearance.appearanceID)
 
             if sourceInfo and C_Transmog.GetSlotForInventoryType(sourceInfo.invType) == slot then
                 table.insert(slotSources, sourceInfo)
@@ -498,6 +515,16 @@ function MogPartialSets:initOverrides()
         end
 
         return slotSources
+    end)
+
+    self:overrideApi('GetSourceIDsForSlot', function (setId, slot)
+        local sourceIds = {}
+
+        for _, sourceInfo in ipairs(C_TransmogSets.GetSourcesForSlot(setId, slot)) do
+            table.insert(sourceIds, sourceInfo.sourceID)
+        end
+
+        return sourceIds
     end)
 
     self:overrideApi('GetSourceInfo', function (sourceId)
@@ -530,14 +557,21 @@ function MogPartialSets:initUi()
     -- set filter parent
     MogPartialSetsFilter:SetParent(UIFrame)
 
-    -- handle tab switching
-    hooksecurefunc('WardrobeCollectionFrame_SetTab', function ()
+    -- handle transmog UI actions
+    hooksecurefunc(WardrobeCollectionFrame, 'SetTab', function ()
         -- hide sets filter when transmog UI is hidden or tabs are switched
         MogPartialSetsFilter:Hide()
 
         -- force refresh after opening the sets tab
         if self:isTransmogrifyingSets() then
-            self:refreshAfter(0.5, true)
+            self:delayedRefresh(true)
+        end
+    end)
+
+    hooksecurefunc(WardrobeFrame, 'Show', function ()
+        -- force refresh after re-opening the transmog UI on sets tab
+        if self:isTransmogrifyingSets() then
+            self:delayedRefresh(true)
         end
     end)
 
@@ -600,7 +634,7 @@ function MogPartialSets:forceRefresh()
     self:refreshSetsFrame(true)
 end
 
-function MogPartialSets:refreshAfter(delay, updateModels, clearInvalidSetCache)
+function MogPartialSets:delayedRefresh(updateModels, clearInvalidSetCache)
     if self.updateTimer then
         self.updateTimer:Cancel()
     end
@@ -613,7 +647,7 @@ function MogPartialSets:refreshAfter(delay, updateModels, clearInvalidSetCache)
         self.pendingInvalidSetCacheClear = true
     end
 
-    self.updateTimer = C_Timer.NewTimer(delay, function ()
+    self.updateTimer = C_Timer.NewTimer(1, function ()
         if self.pendingInvalidSetCacheClear then
             self:clearInvalidSetCache()
         end
@@ -639,7 +673,7 @@ end
 
 function MogPartialSets:clearCaches()
     self.validSetCache = {}
-    self.setSourceCache = {}
+    self.setAppearanceCache = {}
     self.sourceInfoCache = {}
     self.usableSourceCache = {}
 end

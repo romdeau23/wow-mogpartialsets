@@ -28,7 +28,7 @@
     </Button>
 
     <Frame name="MogPartialSetsFilter" hidden="true" frameStrata="DIALOG" inherits="BackdropTemplate">
-        <Size x="170" y="227"/>
+        <Size x="185" y="227"/>
         <Anchors>
             <Anchor point="TOPLEFT" relativePoint="TOPRIGHT" relativeTo="MogPartialSetsFilterButton" x="-10" y="-5"/>
         </Anchors>
@@ -252,7 +252,7 @@
                 </Scripts>
             </CheckButton>
             <Button name="$parentOkButton" inherits="UIPanelButtonTemplate" text="OK">
-                <Size x="71" y="20"/>
+                <Size x="78" y="20"/>
                 <Anchors>
                     <Anchor point="BOTTOMLEFT" relativePoint="BOTTOMLEFT" x="12" y="10"/>
                 </Anchors>
@@ -261,9 +261,9 @@
                 </Scripts>
             </Button>
             <Button name="$parentRefreshButton" inherits="UIPanelButtonTemplate" text="Refresh">
-                <Size x="71" y="20"/>
+                <Size x="78" y="20"/>
                 <Anchors>
-                    <Anchor point="BOTTOMLEFT" relativePoint="BOTTOMLEFT" x="87" y="10"/>
+                    <Anchor point="BOTTOMLEFT" relativePoint="BOTTOMLEFT" x="94" y="10"/>
                 </Anchors>
                 <Scripts>
                     <OnClick>MogPartialSetsAddon:forceRefresh()</OnClick>
