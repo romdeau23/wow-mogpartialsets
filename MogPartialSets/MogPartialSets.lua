@@ -8,13 +8,11 @@ MogPartialSets.initialized = false
 MogPartialSets.configVersion = 7
 MogPartialSets.updateTimer = nil
 MogPartialSets.pendingModelUpdate = false
-MogPartialSets.pendingInvalidSetCacheClear = false
 MogPartialSets.eventHandlers = {
     ADDON_LOADED = 'onAddonLoaded',
     TRANSMOGRIFY_UPDATE = 'onTransmogrifyAction',
     TRANSMOGRIFY_OPEN = 'onTransmogrifyAction',
     GET_ITEM_INFO_RECEIVED = 'onItemInfoReceived',
-    TRANSMOG_COLLECTION_ITEM_UPDATE = 'onTransmogCollectionItemUpdate',
 }
 MogPartialSets.apiOverrides = {}
 MogPartialSets.validSetCache = {}
@@ -76,12 +74,6 @@ end
 function MogPartialSets:onItemInfoReceived(itemId)
     if self.loaded and self.initialized and itemId > 0 then
         self:delayedRefresh(true)
-    end
-end
-
-function MogPartialSets:onTransmogCollectionItemUpdate()
-    if self.loaded and self.initialized then
-        self:delayedRefresh(false, true)
     end
 end
 
@@ -634,7 +626,7 @@ function MogPartialSets:forceRefresh()
     self:refreshSetsFrame(true)
 end
 
-function MogPartialSets:delayedRefresh(updateModels, clearInvalidSetCache)
+function MogPartialSets:delayedRefresh(updateModels)
     if self.updateTimer then
         self.updateTimer:Cancel()
     end
@@ -643,19 +635,10 @@ function MogPartialSets:delayedRefresh(updateModels, clearInvalidSetCache)
         self.pendingModelUpdate = true
     end
 
-    if clearInvalidSetCache then
-        self.pendingInvalidSetCacheClear = true
-    end
-
     self.updateTimer = C_Timer.NewTimer(1, function ()
-        if self.pendingInvalidSetCacheClear then
-            self:clearInvalidSetCache()
-        end
-
         self:refreshSetsFrame(self.pendingModelUpdate)
         self.updateTimer = nil
         self.pendingModelUpdate = false
-        self.pendingInvalidSetCacheClear = false
     end)
 end
 
@@ -676,14 +659,6 @@ function MogPartialSets:clearCaches()
     self.setAppearanceCache = {}
     self.sourceInfoCache = {}
     self.usableSourceCache = {}
-end
-
-function MogPartialSets:clearInvalidSetCache()
-    for id, valid in pairs(self.validSetCache) do
-        if not valid then
-            self.validSetCache[id] = nil
-        end
-    end
 end
 
 function MogPartialSets:tryFinally(try, finally, ...)
