@@ -1,0 +1,3 @@
+package-as: MogPartialSets
+ignore:
+    - README.rst

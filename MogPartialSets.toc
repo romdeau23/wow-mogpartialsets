@@ -1,0 +1,10 @@
+## Interface: 90200
+## Title: MogPartialSets
+## Version: 1.0.0
+## Author: romdeau23
+## Notes: Show incomplete appearance sets in the transmogrification dialog
+## SavedVariables: MogPartialSetsAddonConfig
+## X-Website: https://github.com/romdeau23/wow-mogpartialsets
+
+MogPartialSets.lua
+MogPartialSets.xml
