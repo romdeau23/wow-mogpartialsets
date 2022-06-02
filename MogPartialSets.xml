@@ -29,7 +29,7 @@
     </Button>
 
     <Frame name="MogPartialSetsFilter" hidden="true" frameStrata="DIALOG" inherits="TooltipBackdropTemplate" enableMouse="true">
-        <Size x="185" y="227"/>
+        <Size x="185" y="205"/>
         <Anchors>
             <Anchor point="TOPLEFT" relativePoint="TOPRIGHT" relativeTo="MogPartialSetsFilterButton" x="-10" y="-5"/>
         </Anchors>
@@ -82,44 +82,36 @@
                         <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-82"/>
                     </Anchors>
                 </FontString>
-                <FontString name="$parentSplashText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="chat message when loaded">
-                    <Size>
-                        <AbsDimension x="0" y="10"/>
-                    </Size>
-                    <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="37" y="-104"/>
-                    </Anchors>
-                </FontString>
                 <FontString name="$parentIgnoredSlotsText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="Ignore missing slots:">
                     <Size>
                         <AbsDimension x="0" y="10"/>
                     </Size>
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-131"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-109"/>
                     </Anchors>
                 </FontString>
                 <FontString name="$parentIgnoreHeadText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="head">
                     <Size x="0" y="10"/>
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="47" y="-152"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="47" y="-130"/>
                     </Anchors>
                 </FontString>
                 <FontString name="$parentIgnoreCloakText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="cloak">
                     <Size x="0" y="10"/>
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="47" y="-173"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="47" y="-151"/>
                     </Anchors>
                 </FontString>
                 <FontString name="$parentIgnoreBracersText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="bracers">
                     <Size x="0" y="10"/>
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="107" y="-152"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="107" y="-130"/>
                     </Anchors>
                 </FontString>
                 <FontString name="$parentIgnoreBootsText" inherits="GameFontHighlightSmall" wordwrap="false" justifyH="RIGHT" text="boots">
                     <Size x="0" y="10"/>
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="107" y="-173"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="107" y="-151"/>
                     </Anchors>
                 </FontString>
             </Layer>
@@ -185,26 +177,13 @@
                     </OnTextChanged>
                 </Scripts>
             </EditBox>
-            <CheckButton name="$parentSplashButton" inherits="OptionsCheckButtonTemplate">
-                <Size x="24" y="24"/>
-                <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-98"/>
-                </Anchors>
-                <Scripts>
-                    <OnShow>self:SetChecked(MogPartialSetsAddonConfig.splash)</OnShow>
-                    <OnClick>
-                        MogPartialSetsAddonConfig.splash = self:GetChecked()
-                        MogPartialSetsAddon:notifyConfigUpdated()
-                    </OnClick>
-                </Scripts>
-            </CheckButton>
             <CheckButton name="$parentIgnoreHeadButton" inherits="OptionsCheckButtonTemplate">
                 <Size x="24" y="24"/>
                 <HitRectInsets>
                     <AbsInset left="0" right="-35" top="0" bottom="0"/>
                 </HitRectInsets>
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="22" y="-146"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="22" y="-124"/>
                 </Anchors>
                 <Scripts>
                     <OnShow>self:SetChecked(MogPartialSetsAddon:isIgnoredSlot(Enum.InventoryType.IndexHeadType))</OnShow>
@@ -217,7 +196,7 @@
                     <AbsInset left="0" right="-35" top="0" bottom="0"/>
                 </HitRectInsets>
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="22" y="-167"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="22" y="-145"/>
                 </Anchors>
                 <Scripts>
                     <OnShow>self:SetChecked(MogPartialSetsAddon:isIgnoredSlot(Enum.InventoryType.IndexCloakType))</OnShow>
@@ -230,7 +209,7 @@
                     <AbsInset left="0" right="-35" top="0" bottom="0"/>
                 </HitRectInsets>
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="82" y="-146"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="82" y="-124"/>
                 </Anchors>
                 <Scripts>
                     <OnShow>self:SetChecked(MogPartialSetsAddon:isIgnoredSlot(Enum.InventoryType.IndexWristType))</OnShow>
@@ -243,7 +222,7 @@
                     <AbsInset left="0" right="-35" top="0" bottom="0"/>
                 </HitRectInsets>
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="82" y="-167"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="82" y="-145"/>
                 </Anchors>
                 <Scripts>
                     <OnShow>self:SetChecked(MogPartialSetsAddon:isIgnoredSlot(Enum.InventoryType.IndexFeetType))</OnShow>
