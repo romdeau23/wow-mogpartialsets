@@ -12,7 +12,7 @@ function config.init()
         if not success then
             -- reset config on migration error
             private.loadDefaultConfig()
-            error(result)
+            CallErrorHandler(result)
         end
     else
         -- no config data yet - load default
