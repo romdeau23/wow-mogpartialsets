@@ -252,5 +252,5 @@ function private.refreshSets(frame)
 end
 
 function private.shouldReturnModifiedSets()
-    return not gettingUsableSets and (updatingSets or loadingSet)
+    return not gettingUsableSets and (updatingSets or loadingSet) and addon.ui.isTransmogrifyingSets()
 end
