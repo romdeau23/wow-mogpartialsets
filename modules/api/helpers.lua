@@ -2,10 +2,10 @@ local _, addon = ...
 local helpers, private = addon.module('api', 'helpers')
 local overrides = addon.require('api', 'overrides');
 local config = addon.require('config')
-local validSetCache = {}
-local setAppearanceCache = {}
-local sourceInfoCache = {}
-local usableSourceCache = {}
+local validSetCache = {} -- setId => bool
+local setAppearanceCache = {} -- setId => TransmogSetPrimaryAppearanceInfo[]
+local sourceInfoCache = {} -- sourceId => AppearanceSourceInfo
+local usableSourceCache = {} -- appearanceId => AppearanceSourceInfo
 local hiddenItemMap = {
     [INVSLOT_HEAD] = 134110,
     [INVSLOT_SHOULDER] = 134112,
@@ -18,6 +18,11 @@ local hiddenItemMap = {
     [INVSLOT_WAIST] = 143539,
     [INVSLOT_FEET] = 168664,
 }
+
+function helpers.init()
+    addon.on('TRANSMOG_COLLECTION_SOURCE_ADDED', private.onSourceAddedOrRemoved)
+    addon.on('TRANSMOG_COLLECTION_SOURCE_REMOVED', private.onSourceAddedOrRemoved)
+end
 
 function helpers.clearCaches()
     validSetCache = {}
@@ -278,4 +283,23 @@ end
 
 function helpers.canHideSlot(slot)
     return hiddenItemMap[slot] ~= nil
+end
+
+function private.onSourceAddedOrRemoved(sourceId)
+    sourceInfoCache[sourceId] = nil
+
+    local sourceInfo = overrides.callOriginal('GetSourceInfo', sourceId)
+
+    if sourceInfo then
+        usableSourceCache[sourceInfo.visualID] = nil
+    end
+
+    local sets = C_TransmogSets.GetSetsContainingSourceID(sourceId)
+
+    if sets then
+        for _, setId in pairs(sets) do
+            validSetCache[setId] = nil
+            setAppearanceCache[setId] = nil
+        end
+    end
 end
