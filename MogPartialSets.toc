@@ -1,9 +1,10 @@
-## Interface: 100100
+## Interface: 100105
 ## Title: MogPartialSets
-## Version: 2.0.4
+## Version: 2.0.5
 ## Author: romdeau23
 ## Notes: Show incomplete appearance sets in the transmogrification dialog
 ## SavedVariables: MogPartialSetsAddonConfig
+## IconTexture: Interface\AddOns\MogPartialSets\icon
 ## X-Website: https://github.com/romdeau23/wow-mogpartialsets
 
 lib/globals.lua
