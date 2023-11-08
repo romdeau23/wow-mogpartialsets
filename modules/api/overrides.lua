@@ -70,23 +70,17 @@ function private.getUsableSets()
 
     addon.tryFinally(
         function ()
-            local sets
+            local setFilter
 
-            if config.db.showExtraSets then
-                -- all available sets
-                sets = helpers.getAvailableSets()
-            else
-                -- base sets with variants
-                sets = {}
+            if not config.db.showExtraSets then
+                local currentClassFlag = 2 ^ (select(3, UnitClass('player')) - 1) -- bitmask: 1=Warrior, 2=Paladin, 4=Hunter, 8=Rogue, ...
 
-                for _, set in pairs(C_TransmogSets.GetBaseSets()) do
-                    table.insert(sets, set)
-
-                    for _, variantSet in pairs(C_TransmogSets.GetVariantSets(set.setID)) do
-                        table.insert(sets, variantSet)
-                    end
+                setFilter = function (set)
+                    return bit.band(set.classMask, currentClassFlag) == currentClassFlag
                 end
             end
+
+            local sets = helpers.getAvailableSets(setFilter)
 
             for _, set in pairs(sets) do
                 local collectedSlots, totalSlots = helpers.getSetProgress(set.setID)

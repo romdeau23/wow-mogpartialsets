@@ -39,11 +39,11 @@ function helpers.stringMatchesSearch(string, normalizedSearch)
     return string.find(helpers.normalizeSearchString(string), normalizedSearch, 1, true) ~= nil
 end
 
-function helpers.getAvailableSets()
+function helpers.getAvailableSets(filter)
     local sets = {}
 
     for _, set in ipairs(C_TransmogSets.GetAllSets()) do
-        if helpers.isValidSet(set.setID) then
+        if (filter == nil or filter(set)) and helpers.isValidSet(set.setID) then
             sets[set.setID] = set
         end
     end
