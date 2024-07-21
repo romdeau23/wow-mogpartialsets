@@ -51,6 +51,10 @@
     <CheckButton name="MogPartialSets_FilterCheckboxTemplate" inherits="UICheckButtonTemplate" virtual="true">
         <Size x="24" y="24"/>
 
+        <HitRectInsets>
+            <AbsInset left="0" right="-130" top="0" bottom="0"/>
+        </HitRectInsets>
+
         <Anchors>
             <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="0" y="0"/>
         </Anchors>
@@ -135,12 +139,6 @@
                 </Anchors>
 
                 <Scripts>
-                    <OnLoad>
-                        if self:GetParent().noHide then
-                            self:Disable()  
-                            self:SetAlpha(0.3)                          
-                        end
-                    </OnLoad>
                     <OnShow>
                         self:SetChecked(MogPartialSetsAddon.config.isHiddenSlot(self:GetParent().slot))
                     </OnShow>
@@ -441,7 +439,6 @@
                 <KeyValues>
                     <KeyValue key="label" value="Legs"/>
                     <KeyValue key="slot" value="INVSLOT_LEGS" type="global"/>
-                    <KeyValue key="noHide" value="true" type="boolean"/>
                 </KeyValues>
 
                 <Anchors>

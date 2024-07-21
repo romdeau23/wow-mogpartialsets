@@ -16,6 +16,7 @@ local hiddenItemMap = {
     [INVSLOT_WRIST] = 168665,
     [INVSLOT_HAND] = 158329,
     [INVSLOT_WAIST] = 143539,
+    [INVSLOT_LEGS] = 216696,
     [INVSLOT_FEET] = 168664,
 }
 
@@ -100,7 +101,7 @@ function helpers.getSetProgress(setId)
                 then
                     totalSlots = totalSlots + 1
 
-                    if appearanceInfo.collected or helpers.getUsableSource(appearanceInfo.appearanceID) ~= nil then
+                    if appearanceInfo.collected and helpers.getUsableSource(appearanceInfo.appearanceID) ~= nil then
                         collectedSlots = collectedSlots + 1
                     end
                 end
@@ -263,7 +264,7 @@ function helpers.getUsableSource(appearanceId)
                     -- (useError may only be available after the item has been loaded)
                     if sourceInfo.isCollected and sourceInfo.useError == nil then
                         usableSource = sourceInfo
-                        loaded = GetItemInfo(sourceInfo.itemID) ~= nil
+                        loaded = C_Item.GetItemInfo(sourceInfo.itemID) ~= nil
                         break
                     end
                 end
