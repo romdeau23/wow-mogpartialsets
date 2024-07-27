@@ -1,7 +1,10 @@
 local _, addon = ...
 local ui, private = addon.module('ui')
-local updateTimer
-local pendingModelUpdate = false
+local deferredRefreshSets
+
+function ui.init()
+    deferredRefreshSets = addon.defer(0.5, ui.refreshSets)
+end
 
 function ui.attach()
     -- attach filter frames
@@ -13,7 +16,7 @@ function ui.attach()
     hooksecurefunc(WardrobeCollectionFrame, 'SetTab', private.onWardrobeTabSwitch)
 
     -- handle some events
-    addon.on('GET_ITEM_INFO_RECEIVED', private.onItemInfoReceived)
+    addon.on('TRANSMOG_COLLECTION_ITEM_UPDATE', private.onTransmogCollectionItemUpdate)
 end
 
 function ui.isTransmogrifyingSets()
@@ -22,42 +25,19 @@ function ui.isTransmogrifyingSets()
         and C_Transmog.IsAtTransmogNPC()
 end
 
-function ui.refreshSets(updateModels)
+function ui.refreshSets()
     if not ui.isTransmogrifyingSets() then
         return
     end
 
-    WardrobeCollectionFrame.SetsTransmogFrame:OnEvent('TRANSMOG_COLLECTION_UPDATED')
-
-    if updateModels then
-        for _, model in pairs(WardrobeCollectionFrame.SetsTransmogFrame.Models) do
-            model.setID = -1
-        end
-
-        WardrobeCollectionFrame.SetsTransmogFrame:UpdateSets()
-    end
-end
-
-function ui.refreshSetsDelayed(updateModels)
-    if updateTimer then
-        updateTimer:Cancel()
-    end
-
-    if updateModels then
-        pendingModelUpdate = true
-    end
-
-    updateTimer = C_Timer.NewTimer(1, function ()
-        ui.refreshSets(pendingModelUpdate)
-        updateTimer = nil
-        pendingModelUpdate = false
-    end)
+    private.clearSetData()
+    private.updateSets()
 end
 
 function private.onWardrobeShow()
     -- refresh sets after re-opening the transmog sets UI
     if ui.isTransmogrifyingSets() then
-        ui.refreshSetsDelayed(true)
+        ui.refreshSets()
     end
 end
 
@@ -72,13 +52,22 @@ function private.onWardrobeTabSwitch()
 
     -- refresh sets when switching to transmog sets UI
     if ui.isTransmogrifyingSets() then
-        ui.refreshSetsDelayed(true)
+        ui.refreshSets()
     end
 end
 
-function private.onItemInfoReceived(itemId)
-    -- refresh sets when receiving item info with transmog sets UI open
-    if itemId > 0 and ui.isTransmogrifyingSets() then
-        ui.refreshSetsDelayed(true)
+function private.onTransmogCollectionItemUpdate()
+    deferredRefreshSets()
+end
+
+function private.clearSetData()
+    WardrobeCollectionFrame.SetsTransmogFrame:OnEvent('TRANSMOG_COLLECTION_UPDATED')
+end
+
+function private.updateSets()
+    for _, model in pairs(WardrobeCollectionFrame.SetsTransmogFrame.Models) do
+        model.setID = -1 -- clear model set IDs to force an update
     end
+
+    WardrobeCollectionFrame.SetsTransmogFrame:UpdateSets()
 end

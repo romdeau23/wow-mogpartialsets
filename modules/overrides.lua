@@ -1,6 +1,7 @@
 local _, addon = ...
-local overrides, private = addon.module('api', 'overrides')
-local helpers = addon.require('api', 'helpers')
+local overrides, private = addon.module('overrides')
+local setLoader = addon.require('setLoader')
+local sourceLoader = addon.require('sourceLoader')
 local config = addon.require('config')
 local apis = {}
 local gettingUsableSets = false
@@ -61,7 +62,7 @@ function private.getUsableSets()
     local hasSearch = false
 
     if addon.ui.isTransmogrifyingSets() then
-        search = helpers.normalizeSearchString(WardrobeCollectionFrameSearchBox:GetText())
+        search = setLoader.normalizeSearchString(WardrobeCollectionFrameSearchBox:GetText())
         hasSearch = #search > 0
     end
 
@@ -70,36 +71,25 @@ function private.getUsableSets()
 
     addon.tryFinally(
         function ()
-            local setFilter
-
-            if not config.db.showExtraSets then
-                local currentClassFlag = 2 ^ (select(3, UnitClass('player')) - 1) -- bitmask: 1=Warrior, 2=Paladin, 4=Hunter, 8=Rogue, ...
-
-                setFilter = function (set)
-                    return bit.band(set.classMask, currentClassFlag) == currentClassFlag
-                end
-            end
-
-            local sets = helpers.getAvailableSets(setFilter)
+            local sets = setLoader.getAvailableSets()
 
             for _, set in pairs(sets) do
-                local collectedSlots, totalSlots = helpers.getSetProgress(set.setID)
+                local collectedSlots, totalSlots = setLoader.getSetProgress(set.setID)
 
                 if
-                    totalSlots
-                    and collectedSlots > 0
+                    collectedSlots > 0
                     and (totalSlots - collectedSlots) <= config.db.maxMissingPieces
                     and (
                         not config.db.onlyFavorite
                         or (
                             set.favorite
-                            or config.db.favoriteVariants and helpers.setHasFavoriteVariant(set, sets)
+                            or config.db.favoriteVariants and setLoader.setHasFavoriteVariant(set, sets)
                         )
                     )
                     and (
                         not hasSearch
-                        or helpers.stringMatchesSearch(set.name, search)
-                        or set.label ~= nil and helpers.stringMatchesSearch(set.label, search)
+                        or setLoader.stringMatchesSearch(set.name, search)
+                        or set.label ~= nil and setLoader.stringMatchesSearch(set.label, search)
                     )
                 then
                     set.collected = true
@@ -121,27 +111,50 @@ end
 function private.getSetPrimaryAppearances(setId)
     -- return only applicable apperances when loading a set or updating the list
     if private.shouldReturnModifiedSets() then
-        return helpers.getApplicableSetAppearances(setId)
+        return setLoader.getApplicableSetAppearances(setId, updatingSets or loadingSet and config.db.useHiddenIfMissing)
     end
 
     -- return original sources
-    return helpers.getSetPrimaryAppearancesCached(setId)
+    return setLoader.getSetPrimaryAppearancesCached(setId)
 end
 
 function private.getSetInfo(setId)
     local set = overrides.callOriginal('GetSetInfo', setId)
 
     if set and addon.ui.isTransmogrifyingSets() then
-        local collectedSlots, totalSlots = helpers.getSetProgress(setId)
+        local collectedSlots, totalSlots = setLoader.getSetProgress(setId)
 
         if totalSlots then
-            set.label = string.format(
-                '%s\n|cff808080(collected:|r |c%s%d/%d|cff808080)|r',
-                set.label or '',
-                helpers.getSetProgressColor(collectedSlots, totalSlots),
+            local parts = {}
+
+            if set.label then
+                table.insert(parts, set.label)
+            end
+
+            if IsAltKeyDown() then
+                if set.label then
+                    table.insert(parts, ' ')
+                end
+
+                table.insert(parts, string.format('(%d)', setId))
+            end
+
+            if #parts > 0 then
+                table.insert(parts, '\n')
+            end
+
+            if set.description then
+                table.insert(parts, string.format('|cff40c040%s|r\n', set.description))
+            end
+
+            table.insert(parts, string.format(
+                '|cff808080(collected:|r |c%s%d/%d|cff808080)|r',
+                setLoader.getSetProgressColor(collectedSlots, totalSlots),
                 collectedSlots,
                 totalSlots
-             )
+            ))
+
+            set.label = table.concat(parts)
         end
     end
 
@@ -149,51 +162,25 @@ function private.getSetInfo(setId)
 end
 
 function private.getSourcesForSlot(setId, slot)
-    -- use hidden item if this slot is always hidden
-    if private.shouldReturnModifiedSets() and config.isHiddenSlot(slot) then
-        return {overrides.callOriginal('GetSourceInfo', helpers.getSourceIdForHiddenSlot(slot))}
+    -- call original API if override should not be active
+    if not private.shouldReturnModifiedSets() then
+        return overrides.callOriginal('GetSourcesForSlot', setId, slot)
     end
 
-    -- get sources from original API
-    local slotSources = overrides.callOriginal('GetSourcesForSlot', setId, slot)
-
-    if not addon.ui.isTransmogrifyingSets() then
-        return slotSources
+    -- return hidden item if this slot is always hidden
+    if config.isHiddenSlot(slot) then
+        return {(sourceLoader.getInfo(setLoader.getSourceIdForHiddenSlot(slot)))}
     end
 
-    local hasCollectedSource = false
+    -- try to find a usable source
+    local usableSource = setLoader.getUsableSetSlotSource(setId, slot)
 
-    for _, sourceInfo in ipairs(slotSources) do
-        if sourceInfo.isCollected and sourceInfo.useError == nil then
-            hasCollectedSource = true
-            break
-        end
+    if usableSource then
+        return {usableSource}
     end
 
-    -- return if there are any collected sources
-    if hasCollectedSource then
-        return slotSources
-    end
-
-    -- try to add alternative sources
-    local hasAltSource = false
-
-    for _, appearance in pairs(helpers.getCollectedSetAppearances(setId)) do
-        local sourceInfo =  overrides.callOriginal('GetSourceInfo', appearance.appearanceID)
-
-        if sourceInfo and C_Transmog.GetSlotForInventoryType(sourceInfo.invType) == slot then
-            table.insert(slotSources, sourceInfo)
-            hasAltSource = true
-            break
-        end
-    end
-
-    -- fallback to hidden item if possible
-    if not hasAltSource and helpers.canHideSlot(slot) then
-        table.insert(slotSources, overrides.callOriginal('GetSourceInfo', helpers.getSourceIdForHiddenSlot(slot)))
-    end
-
-    return slotSources
+    -- fallback to hidden item
+    return {(sourceLoader.getInfo(setLoader.getSourceIdForHiddenSlot(slot)))}
 end
 
 function private.getSourceIdsForSlot(setId, slot)

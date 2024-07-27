@@ -1,6 +1,6 @@
-## Interface: 110002
+## Interface: 110000
 ## Title: MogPartialSets
-## Version: 2.0.9
+## Version: 2.1.0
 ## Author: romdeau23
 ## Notes: Show incomplete appearance sets in the transmogrification dialog
 ## SavedVariables: MogPartialSetsAddonConfig
@@ -8,12 +8,14 @@
 ## X-Website: https://github.com/romdeau23/wow-mogpartialsets
 
 lib/globals.lua
+lib/defer.lua
 lib/event.lua
 lib/module.lua
 lib/try.lua
 modules/config.lua
-modules/api/helpers.lua
-modules/api/overrides.lua
+modules/overrides.lua
+modules/setLoader.lua
+modules/sourceLoader.lua
 modules/ui.lua
 modules/ui/filter.xml
 modules/ui/filter.lua

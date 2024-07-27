@@ -12,7 +12,7 @@ function filter.updateStates()
 end
 
 function filter.onChange()
-    addon.ui.refreshSets(true)
+    addon.ui.refreshSets()
     filter.updateStates()
 end
 
@@ -21,6 +21,7 @@ function filter.hide()
 end
 
 function filter.onRefreshClicked()
-    addon.api.helpers.clearCaches()
-    addon.ui.refreshSets(true)
+    addon.setLoader.clearCaches()
+    addon.sourceLoader.clearCache()
+    addon.ui.refreshSets()
 end
