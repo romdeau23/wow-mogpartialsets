@@ -3,7 +3,13 @@ local ui, private = addon.module('ui')
 local deferredRefreshSets
 
 function ui.init()
-    deferredRefreshSets = addon.defer(0.5, ui.refreshSets)
+    if not addon.isAddonEnabled('ExtendedSets') then
+        deferredRefreshSets = addon.defer(0.5, ui.refreshSets)
+    else
+        -- disable deferred refresh when "Extended Transmog Sets" addon is enabled
+        -- (both addons refreshing on TRANSMOG_COLLECTION_ITEM_UPDATE causes a refresh loop)
+        deferredRefreshSets = function () end
+    end
 end
 
 function ui.attach()

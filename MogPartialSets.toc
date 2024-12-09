@@ -1,6 +1,6 @@
 ## Interface: 110002
 ## Title: MogPartialSets
-## Version: 2.1.1
+## Version: 2.1.2
 ## Author: romdeau23
 ## Notes: Show incomplete appearance sets in the transmogrification dialog
 ## SavedVariables: MogPartialSetsAddonConfig
@@ -10,6 +10,7 @@
 lib/globals.lua
 lib/defer.lua
 lib/event.lua
+lib/interop.lua
 lib/module.lua
 lib/try.lua
 modules/config.lua
