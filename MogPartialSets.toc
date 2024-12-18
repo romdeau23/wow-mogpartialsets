@@ -1,6 +1,6 @@
-## Interface: 110002
+## Interface: 110007
 ## Title: MogPartialSets
-## Version: 2.1.2
+## Version: 2.1.3
 ## Author: romdeau23
 ## Notes: Show incomplete appearance sets in the transmogrification dialog
 ## SavedVariables: MogPartialSetsAddonConfig
