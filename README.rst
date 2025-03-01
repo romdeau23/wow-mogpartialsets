@@ -14,7 +14,8 @@ The following options are available:
 - **show extra sets** - show additional sets that are normally hidden (lookalike sets for other classes etc.)
 - **only favorite sets** - show only sets that you have favorited
 - **only favorite variants** - also show variants of favorite sets (if **only favorite sets** is on)
-- **use hidden item if missing** - when applying a set, use a hidden item for all missing slots
+- **hide missing set items** - when applying a set, replace all missing slots of that set with a hidden item
+- **hide items not in set** - when applying a set, replace all other currently worn items with hidden items
 - **max missing pieces** - maximum number of missing pieces for a set to show up in the list
 - **equipment slots** - set options for specific slots
 
