@@ -2,26 +2,10 @@ local addonName, addon = ...
 local modules = {}
 
 function addon.module(...)
-    local module = addon.require(...)
-    local private = {}
-
+    local module = addon.namespace(...)
     table.insert(modules, module)
 
-    return module, private
-end
-
-function addon.require(...)
-    local namespace = addon
-
-    for _, key in ipairs({...}) do
-        if namespace[key] == nil then
-            namespace[key] = {}
-        end
-
-        namespace = namespace[key]
-    end
-
-    return namespace
+    return module, {}
 end
 
 addon.on('ADDON_LOADED', function (name)

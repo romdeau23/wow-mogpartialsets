@@ -1,5 +1,5 @@
 local _, addon = ...
-local filter, private = addon.module('ui', 'filter')
+local filter = addon.module('ui', 'filter')
 
 function filter.attach()
     MogPartialSets_FilterButton:SetParent(WardrobeCollectionFrame.SetsTransmogFrame)

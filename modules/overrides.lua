@@ -1,21 +1,22 @@
 local _, addon = ...
-local overrides, private = addon.module('overrides')
-local setLoader = addon.require('setLoader')
-local sourceLoader = addon.require('sourceLoader')
-local config = addon.require('config')
+local overrides, private = addon.module('overrides'), {}
+local setLoader = addon.namespace('setLoader')
+local sourceLoader = addon.namespace('sourceLoader')
+local config = addon.namespace('config')
 local apis = {}
 local gettingUsableSets = false
 local updatingSets = false
 local loadingSet = false
+local loadingSetSlotSourceIds
 
 function overrides.prepareGlobal()
-    private.prepare(C_TransmogSets, 'HasUsableSets')
-    private.prepare(C_TransmogSets, 'GetUsableSets')
-    private.prepare(C_TransmogSets, 'GetSetPrimaryAppearances')
-    private.prepare(C_TransmogSets, 'GetSetInfo')
-    private.prepare(C_TransmogSets, 'GetSourcesForSlot')
-    private.prepare(C_TransmogSets, 'GetSourceIDsForSlot')
-    private.prepare(C_TransmogCollection, 'GetSourceInfo')
+    private.prepare(C_TransmogSets, 'HasUsableSets') -- bool
+    private.prepare(C_TransmogSets, 'GetUsableSets') -- TransmogSetInfo[]
+    private.prepare(C_TransmogSets, 'GetSetPrimaryAppearances') -- TransmogSetPrimaryAppearanceInfo[]
+    private.prepare(C_TransmogSets, 'GetSetInfo') -- TransmogSetInfo
+    private.prepare(C_TransmogSets, 'GetSourcesForSlot') -- AppearanceSourceInfo[]
+    private.prepare(C_TransmogSets, 'GetSourceIDsForSlot') -- number[]
+    private.prepare(C_TransmogCollection, 'GetSourceInfo') -- AppearanceSourceInfo
 end
 
 function overrides.prepareWardrobe()
@@ -111,7 +112,14 @@ end
 function private.getSetPrimaryAppearances(setId)
     -- return only applicable apperances when loading a set or updating the list
     if private.shouldReturnModifiedSets() then
-        return setLoader.getApplicableSetAppearances(setId, updatingSets or loadingSet and config.db.useHiddenIfMissing)
+        if loadingSet then
+            local appearances, slotSourceIds = setLoader.getSetAppearancesForLoadSet(setId)
+            loadingSetSlotSourceIds = slotSourceIds
+
+            return appearances
+        end
+
+        return setLoader.getSetAppearancesForUpdateSet(setId)
     end
 
     -- return original sources
@@ -167,9 +175,22 @@ function private.getSourcesForSlot(setId, slot)
         return overrides.callOriginal('GetSourcesForSlot', setId, slot)
     end
 
+    -- if a set is being currently loaded, use the already determined sources
+    if loadingSet then
+        local info = sourceLoader.getInfo(loadingSetSlotSourceIds[slot], true)
+
+        if not info.name then
+            -- ignore items that might not be loaded at this point (happens randomly with some hidden items)
+            info = CopyTable(info)
+            info.name = ''
+        end
+
+        return {info}
+    end
+
     -- return hidden item if this slot is always hidden
     if config.isHiddenSlot(slot) then
-        return {(sourceLoader.getInfo(setLoader.getSourceIdForHiddenSlot(slot)))}
+        return {(sourceLoader.getInfo(sourceLoader.getSourceIdForHiddenSlot(slot), true))}
     end
 
     -- try to find a usable source
@@ -180,7 +201,7 @@ function private.getSourcesForSlot(setId, slot)
     end
 
     -- fallback to hidden item
-    return {(sourceLoader.getInfo(setLoader.getSourceIdForHiddenSlot(slot)))}
+    return {(sourceLoader.getInfo(sourceLoader.getSourceIdForHiddenSlot(slot), true))}
 end
 
 function private.getSourceIdsForSlot(setId, slot)
@@ -220,10 +241,12 @@ function private.loadSet(frame, setId)
     addon.tryFinally(
         function ()
             loadingSet = true
+            loadingSetSlotSourceIds = nil
             overrides.callOriginal('LoadSet', frame, setId)
         end,
         function ()
             loadingSet = false
+            loadingSetSlotSourceIds = nil
         end
     )
 end

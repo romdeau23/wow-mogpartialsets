@@ -1,63 +1,12 @@
 local _, addon = ...
-local setLoader, private = addon.module('setLoader')
-local sourceLoader = addon.require('sourceLoader')
-local overrides = addon.require('overrides')
-local config = addon.require('config')
+local setLoader, private = addon.module('setLoader'), {}
+local sourceLoader = addon.namespace('sourceLoader')
+local overrides = addon.namespace('overrides')
+local config = addon.namespace('config')
 local validSetCache = {} -- setId => bool
 local primarySetAppearanceCache = {} -- setId => TransmogSetPrimaryAppearanceInfo[]
 local setSlotSourceIdCache = {} -- setId => slot => sourceId[]
 local usableSetSlotSourceCache = {} -- setId => slot => AppearanceSourceInfo
--- https://warcraft.wiki.gg/wiki/ClassId
-local classMasks = {
-    [1] = 2 ^ (1 - 1), -- WARRIOR
-    [2] = 2 ^ (2 - 1), -- PALADIN
-    [3] = 2 ^ (3 - 1), -- HUNTER
-    [4] = 2 ^ (4 - 1), -- ROGUE
-    [5] = 2 ^ (5 - 1), -- PRIEST
-    [6] = 2 ^ (6 - 1), -- DEATHKNIGHT
-    [7] = 2 ^ (7 - 1), -- SHAMAN
-    [8] = 2 ^ (8 - 1), -- MAGE
-    [9] = 2 ^ (9 - 1), -- WARLOCK
-    [10] = 2 ^ (10 - 1), -- MONK
-    [11] = 2 ^ (11 - 1), -- DRUID
-    [12] = 2 ^ (12 - 1), -- DEMONHUNTER
-    [13] = 2 ^ (13 - 1), -- EVOKER
-}
-local armorTypeClassMasks = {
-    -- cloth
-    [5] = bit.bor(classMasks[5], classMasks[8], classMasks[9]), -- PRIEST
-    [8] = bit.bor(classMasks[5], classMasks[8], classMasks[9]), -- MAGE
-    [9] = bit.bor(classMasks[5], classMasks[8], classMasks[9]), -- WARLOCK
-
-    -- leather
-    [4] = bit.bor(classMasks[4], classMasks[10], classMasks[11], classMasks[12]), -- ROGUE
-    [10] = bit.bor(classMasks[4], classMasks[10], classMasks[11], classMasks[12]), -- MONK
-    [11] = bit.bor(classMasks[4], classMasks[10], classMasks[11], classMasks[12]), -- DRUID
-    [12] = bit.bor(classMasks[4], classMasks[10], classMasks[11], classMasks[12]), -- DEMONHUNTER
-
-    -- mail
-    [3] = bit.bor(classMasks[3], classMasks[7], classMasks[13]), -- HUNTER
-    [7] = bit.bor(classMasks[3], classMasks[7], classMasks[13]), -- SHAMAN
-    [13] = bit.bor(classMasks[3], classMasks[7], classMasks[13]), -- EVOKER
-
-    -- plate
-    [1] = bit.bor(classMasks[1], classMasks[2], classMasks[6]), -- WARRIOR
-    [2] = bit.bor(classMasks[1], classMasks[2], classMasks[6]), -- PALADIN
-    [6] = bit.bor(classMasks[1], classMasks[2], classMasks[6]), -- DEATHKNIGHT
-}
-local hiddenItemMap = {
-    [INVSLOT_HEAD] = 134110,
-    [INVSLOT_SHOULDER] = 134112,
-    [INVSLOT_BACK] = 134111,
-    [INVSLOT_CHEST] = 168659,
-    [INVSLOT_BODY] = 142503,
-    [INVSLOT_TABARD] = 142504,
-    [INVSLOT_WRIST] = 168665,
-    [INVSLOT_HAND] = 158329,
-    [INVSLOT_WAIST] = 143539,
-    [INVSLOT_LEGS] = 216696,
-    [INVSLOT_FEET] = 168664,
-}
 
 function setLoader.init()
     addon.on('TRANSMOG_COLLECTION_SOURCE_ADDED', private.onSourceAddedOrRemoved)
@@ -166,32 +115,78 @@ function setLoader.getSetPrimaryAppearancesCached(setId)
     return primarySetAppearanceCache[setId]
 end
 
-function setLoader.getApplicableSetAppearances(setId, fallbackToHidden)
+-- this is used when a set is being applied in the transmog UI
+function setLoader.getSetAppearancesForLoadSet(setId)
     local appearances = {}
+    local slotSourceIds = {}
+    local skippedSlots = {}
 
     -- add collected appearances
     private.iterateSetApperances(setId, function (slot)
+        local sourceId
+
         if config.isHiddenSlot(slot) then
             -- always hidden slot
-            table.insert(appearances, {collected = true, appearanceID = setLoader.getSourceIdForHiddenSlot(slot)})
+            sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
         else
             local usableSource = setLoader.getUsableSetSlotSource(setId, slot)
 
             if usableSource then
-                -- got usable source
-                table.insert(appearances, {collected = true, appearanceID = usableSource.sourceID})
-            elseif fallbackToHidden then
-                -- hidden fallback
-                table.insert(appearances, {collected = true, appearanceID = setLoader.getSourceIdForHiddenSlot(slot)})
+                -- usable source
+                sourceId = usableSource.sourceID
+            elseif config.db.useHiddenIfMissing then
+                -- hidden item
+                sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
+            else
+                skippedSlots[slot] = true
+                return
             end
+
+            table.insert(appearances, {collected = true, appearanceID = sourceId})
+            slotSourceIds[slot] = sourceId
+        end
+    end)
+
+    -- add other slots as hidden, if enabled
+    if config.db.hideItemsNotInSet then
+        for slot in pairs(addon.const.hiddenItemMap) do
+            if not slotSourceIds[slot] and not skippedSlots[slot] then
+                local sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
+                table.insert(appearances, {collected = true, appearanceID = sourceId})
+                slotSourceIds[slot] = sourceId
+            end
+        end
+    end
+
+    return appearances, slotSourceIds
+end
+
+function setLoader.getSetAppearancesForUpdateSet(setId)
+    local appearances = {}
+
+    -- add collected appearances
+    private.iterateSetApperances(setId, function (slot)
+        local sourceId
+
+        if config.isHiddenSlot(slot) then
+            -- always hidden slot
+            sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
+        else
+            local usableSource = setLoader.getUsableSetSlotSource(setId, slot)
+
+            if usableSource then
+                -- usable source
+                sourceId = usableSource.sourceID
+            else
+                -- use hidden item instead (so wardrobe UI doesn't crash)
+                sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
+            end
+
+            table.insert(appearances, {collected = true, appearanceID = sourceId})
         end
     end)
 
     return appearances
-end
-
-function setLoader.getSourceIdForHiddenSlot(slot)
-    return (select(2, C_TransmogCollection.GetItemInfo(hiddenItemMap[slot])))
 end
 
 function setLoader.getUsableSetSlotSource(setId, slot)
@@ -224,15 +219,13 @@ function private.getCurrentClassMask()
     local classId = select(3, UnitClass('player'))
 
     if config.db.showExtraSets then
-        return armorTypeClassMasks[classId]
+        return addon.const.armorTypeClassMasks[classId]
     end
 
-    return classMasks[classId]
+    return addon.const.classMasks[classId]
 end
 
 function private.validateSet(setId)
-    -- if true then return setId == 2162 end
-
     if validSetCache[setId] == nil then
         local valid = false
 

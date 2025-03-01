@@ -1,6 +1,6 @@
 local _, addon = ...
-local config, private = addon.module('config')
-local latestVersion = 9
+local config, private = addon.module('config'), {}
+local latestVersion = 10
 
 function config.init()
     if MogPartialSetsAddonConfig then
@@ -33,6 +33,7 @@ function private.getDefaultConfig()
         onlyFavorite = false,
         favoriteVariants = false,
         useHiddenIfMissing = true,
+        hideItemsNotInSet = true,
         ignoredSlotMap = {
             [INVSLOT_BACK] = true,
             [INVSLOT_WRIST] = true,
@@ -97,5 +98,9 @@ private.migrations = {
         end
 
         config.db.ignoredSlotMap = newIgnoredSlotMap
+    end,
+
+    [10] = function ()
+        config.db.hideItemsNotInSet = config.db.useHiddenIfMissing
     end,
 }

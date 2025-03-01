@@ -1,5 +1,5 @@
 local _, addon = ...
-local main, private = addon.module('main')
+local main, private = addon.module('main'), {}
 local initialized = false
 
 function main.init()

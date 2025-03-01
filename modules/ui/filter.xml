@@ -163,7 +163,7 @@
     </Frame>
 
     <Frame name="MogPartialSets_Filter" hidden="true" frameStrata="DIALOG" inherits="TooltipBackdropTemplate" enableMouse="true">
-        <Size x="185" y="400"/>
+        <Size x="185" y="422"/>
 
         <Anchors>
             <Anchor point="TOPLEFT" relativePoint="TOPRIGHT" relativeTo="MogPartialSets_FilterButton" x="-10" y="-5"/>
@@ -183,7 +183,7 @@
                     </Size>
 
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-130"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-152"/>
                     </Anchors>
                 </FontString>
 
@@ -193,7 +193,7 @@
                     </Size>
 
                     <Anchors>
-                        <Anchor point="TOPLEFT" x="12" y="-143"/>
+                        <Anchor point="TOPLEFT" x="12" y="-165"/>
                     </Anchors>
                 </Texture>
 
@@ -203,7 +203,7 @@
                     </Size>
 
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-149"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-171"/>
                     </Anchors>
                 </FontString>
 
@@ -213,7 +213,7 @@
                     </Size>
 
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="72" y="-149"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="72" y="-171"/>
                     </Anchors>
                 </FontString>
 
@@ -223,7 +223,7 @@
                     </Size>
 
                     <Anchors>
-                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="122" y="-149"/>
+                        <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="122" y="-171"/>
                     </Anchors>
                 </FontString>
             </Layer>
@@ -306,7 +306,7 @@
 
             <Frame parentKey="UseHiddenIfMissingToggle" inherits="MogPartialSets_FilterRowTemplate">
                 <KeyValues>
-                    <KeyValue key="label" value="use hidden item if missing"/>
+                    <KeyValue key="label" value="hide missing set items"/>
                 </KeyValues>
 
                 <Anchors>
@@ -322,13 +322,31 @@
                 </Frames>
             </Frame>
 
+            <Frame parentKey="HideItemsNotInSetToggle" inherits="MogPartialSets_FilterRowTemplate">
+                <KeyValues>
+                    <KeyValue key="label" value="hide items not in set"/>
+                </KeyValues>
+
+                <Anchors>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-98"/>
+                </Anchors>
+
+                <Frames>
+                    <CheckButton inherits="MogPartialSets_FilterCheckboxTemplate">
+                        <KeyValues>
+                            <KeyValue key="configKey" value="hideItemsNotInSet"/>
+                        </KeyValues>
+                    </CheckButton>
+                </Frames>
+            </Frame>
+
             <Frame parentKey="MaxMissingPieces" inherits="MogPartialSets_FilterRowTemplate">
                 <KeyValues>
                     <KeyValue key="label" value="max missing pieces"/>
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-98"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="12" y="-120"/>
                 </Anchors>
 
                 <Frames>
@@ -365,7 +383,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-162"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-184"/>
                 </Anchors>
             </Frame>
 
@@ -376,7 +394,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-184"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-204"/>
                 </Anchors>
             </Frame>
 
@@ -387,7 +405,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-206"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-228"/>
                 </Anchors>
             </Frame>
 
@@ -398,7 +416,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-228"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-250"/>
                 </Anchors>
             </Frame>
 
@@ -409,7 +427,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-250"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-272"/>
                 </Anchors>
             </Frame>
 
@@ -420,7 +438,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-272"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-294"/>
                 </Anchors>
             </Frame>
 
@@ -431,7 +449,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-294"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-316"/>
                 </Anchors>
             </Frame>
 
@@ -442,7 +460,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-316"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-338"/>
                 </Anchors>
             </Frame>
 
@@ -453,7 +471,7 @@
                 </KeyValues>
 
                 <Anchors>
-                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-338"/>
+                    <Anchor point="TOPLEFT" relativePoint="TOPLEFT" x="18" y="-360"/>
                 </Anchors>
             </Frame>
 

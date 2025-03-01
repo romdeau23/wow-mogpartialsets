@@ -1,8 +1,8 @@
 local _, addon = ...
-local sourceLoader, private = addon.module('sourceLoader')
-local overrides = addon.require('overrides');
+local sourceLoader, private = addon.module('sourceLoader'), {}
+local overrides = addon.namespace('overrides');
 local cache = {} -- sourceId => entry
-local PENDING_TIMEOUT = 10
+local pendingTimeout = 10
 
 function sourceLoader.init()
     addon.on('TRANSMOG_COLLECTION_SOURCE_ADDED', private.onSourceAddedOrRemoved)
@@ -21,6 +21,10 @@ function sourceLoader.getInfo(sourceId, reloadPending)
     end
 
     return entry.info, entry.pending
+end
+
+function sourceLoader.getSourceIdForHiddenSlot(slot)
+    return (select(2, C_TransmogCollection.GetItemInfo(addon.const.hiddenItemMap[slot])))
 end
 
 function sourceLoader.clearCache()
@@ -48,7 +52,7 @@ function private.createEntry(sourceId)
 end
 
 function private.reloadEntry(entry)
-    if GetTime() - entry.firstLoadTime >= PENDING_TIMEOUT then
+    if GetTime() - entry.firstLoadTime >= pendingTimeout then
         entry.pending = false
         entry.info.name = '' -- fake a loaded info 🤷
         return
