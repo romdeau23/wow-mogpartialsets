@@ -20,28 +20,6 @@ function config.init()
     end
 end
 
-function private.loadDefaultConfig()
-    MogPartialSetsAddonConfig = private.getDefaultConfig()
-    config.db = MogPartialSetsAddonConfig
-end
-
-function private.getDefaultConfig()
-    return {
-        version = latestVersion,
-        showExtraSets = true,
-        maxMissingPieces = 2,
-        onlyFavorite = false,
-        favoriteVariants = false,
-        useHiddenIfMissing = true,
-        hideItemsNotInSet = true,
-        ignoredSlotMap = {
-            [INVSLOT_BACK] = true,
-            [INVSLOT_WRIST] = true,
-        },
-        hiddenSlotMap = {},
-    }
-end
-
 function config.isIgnoredSlot(invType)
     return config.db.ignoredSlotMap[invType] ~= nil
 end
@@ -64,6 +42,28 @@ function config.setHiddenSlot(invType, isIgnored)
     else
         config.db.hiddenSlotMap[invType] = nil
     end
+end
+
+function private.loadDefaultConfig()
+    MogPartialSetsAddonConfig = private.getDefaultConfig()
+    config.db = MogPartialSetsAddonConfig
+end
+
+function private.getDefaultConfig()
+    return {
+        version = latestVersion,
+        showExtraSets = true,
+        maxMissingPieces = 2,
+        onlyFavorite = false,
+        favoriteVariants = false,
+        useHiddenIfMissing = true,
+        hideItemsNotInSet = true,
+        ignoredSlotMap = {
+            [INVSLOT_BACK] = true,
+            [INVSLOT_WRIST] = true,
+        },
+        hiddenSlotMap = {},
+    }
 end
 
 function private.migrateConfiguration()

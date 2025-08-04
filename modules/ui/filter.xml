@@ -3,6 +3,10 @@
     xmlns:xsi="http://www.w3.org/1001/XMLSchema-instance"
     xsi:schemaLocation="http://www.blizzard.com/wow/ui/ ..\FrameXML\UI.xsd"
 >
+    <Font name="MogPartialSetsGreyFontSmall" inherits="GameFontNormalSmall" virtual="true">
+        <Color r="0.50" g="0.50" b="0.50"/>
+    </Font>
+
     <Button name="MogPartialSets_FilterButton" inherits="UIMenuButtonStretchTemplate" text="FILTER" hidden="true">
         <Size x="93" y="22"/>
 
@@ -197,7 +201,7 @@
                     </Anchors>
                 </Texture>
 
-                <FontString inherits="GameFontNormalGraySmall" wordwrap="false" text="Slot">
+                <FontString inherits="MogPartialSetsGreyFontSmall" wordwrap="false" text="Slot">
                     <Size>
                         <AbsDimension x="0" y="10"/>
                     </Size>
@@ -207,7 +211,7 @@
                     </Anchors>
                 </FontString>
 
-                <FontString inherits="GameFontNormalGraySmall" wordwrap="false" justifyH="CENTER" text="Ignored">
+                <FontString inherits="MogPartialSetsGreyFontSmall" wordwrap="false" justifyH="CENTER" text="Ignored">
                     <Size>
                         <AbsDimension x="50" y="10"/>
                     </Size>
@@ -217,7 +221,7 @@
                     </Anchors>
                 </FontString>
 
-                <FontString inherits="GameFontNormalGraySmall" wordwrap="false" justifyH="CENTER" text="Hidden">
+                <FontString inherits="MogPartialSetsGreyFontSmall" wordwrap="false" justifyH="CENTER" text="Hidden">
                     <Size>
                         <AbsDimension x="50" y="10"/>
                     </Size>
