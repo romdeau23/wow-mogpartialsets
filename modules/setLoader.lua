@@ -1,7 +1,6 @@
 local _, addon = ...
 local setLoader, private = addon.module('setLoader'), {}
 local sourceLoader = addon.namespace('sourceLoader')
-local overrides = addon.namespace('overrides')
 local config = addon.namespace('config')
 local validSetCache = {} -- setId => bool
 local primarySetAppearanceCache = {} -- setId => TransmogSetPrimaryAppearanceInfo[]
@@ -16,17 +15,11 @@ end
 function setLoader.clearCaches()
     validSetCache = {}
     primarySetAppearanceCache = {}
+    setSlotSourceIdCache = {}
+    usableSetSlotSourceCache = {}
 end
 
-function setLoader.normalizeSearchString(string)
-    return string.lower(strtrim(string))
-end
-
-function setLoader.stringMatchesSearch(string, normalizedSearch)
-    return string.find(setLoader.normalizeSearchString(string), normalizedSearch, 1, true) ~= nil
-end
-
-function setLoader.getAvailableSets()
+function setLoader.getUsableSets()
     local sets = {}
     local classMask = private.getCurrentClassMask()
     local faction = UnitFactionGroup('player')
@@ -67,14 +60,19 @@ function setLoader.getSetProgress(setId)
     return collectedSlots, totalSlots
 end
 
-function setLoader.getSetProgressColor(current, max)
-    if current >= max then
-        return 'ff008000'
-    elseif max > 0 and current / max >= 0.49 then
-        return 'fffea000'
-    else
-        return 'ff800000'
-    end
+function setLoader.getRealSetProgress(setId)
+    local collectedSlots = 0
+    local totalSlots = 0
+
+    private.iterateSetApperances(setId, function (slot)
+        totalSlots = totalSlots + 1
+
+        if setLoader.getUsableSetSlotSource(setId, slot) then
+            collectedSlots = collectedSlots + 1
+        end
+    end)
+
+    return collectedSlots, totalSlots
 end
 
 function setLoader.setHasFavoriteVariant(set, availableSets)
@@ -105,14 +103,6 @@ function setLoader.setHasFavoriteVariant(set, availableSets)
     end
 
     return false
-end
-
-function setLoader.getSetPrimaryAppearancesCached(setId)
-    if primarySetAppearanceCache[setId] == nil then
-        primarySetAppearanceCache[setId] = overrides.callOriginal('GetSetPrimaryAppearances', setId)
-    end
-
-    return primarySetAppearanceCache[setId]
 end
 
 -- this is used when a set is being applied in the transmog UI
@@ -161,34 +151,6 @@ function setLoader.getSetAppearancesForLoadSet(setId)
     return appearances, slotSourceIds
 end
 
-function setLoader.getSetAppearancesForUpdateSet(setId)
-    local appearances = {}
-
-    -- add collected appearances
-    private.iterateSetApperances(setId, function (slot)
-        local sourceId
-
-        if config.isHiddenSlot(slot) then
-            -- always hidden slot
-            sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
-        else
-            local usableSource = setLoader.getUsableSetSlotSource(setId, slot)
-
-            if usableSource then
-                -- usable source
-                sourceId = usableSource.sourceID
-            else
-                -- use hidden item instead (so wardrobe UI doesn't crash)
-                sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
-            end
-
-            table.insert(appearances, {collected = true, appearanceID = sourceId})
-        end
-    end)
-
-    return appearances
-end
-
 function setLoader.getUsableSetSlotSource(setId, slot)
     if usableSetSlotSourceCache[setId] and usableSetSlotSourceCache[setId][slot] then
         return usableSetSlotSourceCache[setId][slot]
@@ -197,10 +159,16 @@ function setLoader.getUsableSetSlotSource(setId, slot)
     for _, sourceId in ipairs(private.getSetSlotSourceIds(setId, slot)) do
         local sourceInfo, isPending = sourceLoader.getInfo(sourceId, true)
 
-        if sourceInfo and sourceInfo.useErrorType == nil then
+        if
+            sourceInfo
+            and sourceInfo.useErrorType == nil
+            and sourceInfo.isValidSourceForPlayer ~= false
+            and sourceInfo.canDisplayOnPlayer ~= false
+            and sourceInfo.meetsTransmogPlayerCondition ~= false
+        then
             if isPending then
                 sourceInfo = CopyTable(sourceInfo, true)
-                sourceInfo.name = '' -- needed to make WardrobeSetsTransmogMixin:LoadSet() happy
+                sourceInfo.name = '' -- avoid nil during pending item info
             else
                 assert(sourceInfo.name)
                 if not usableSetSlotSourceCache[setId] then
@@ -213,6 +181,30 @@ function setLoader.getUsableSetSlotSource(setId, slot)
             return sourceInfo
         end
     end
+end
+
+function setLoader.iterateSetApperances(setId, callback)
+    return private.iterateSetApperances(setId, callback)
+end
+
+function setLoader.getMissingSlots(setId)
+    local missingSlots = {}
+
+    private.iterateSetApperances(setId, function (slot)
+        if not setLoader.getUsableSetSlotSource(setId, slot) then
+            table.insert(missingSlots, slot)
+        end
+    end)
+
+    return missingSlots
+end
+
+function private.getSetPrimaryAppearancesCached(setId)
+    if primarySetAppearanceCache[setId] == nil then
+        primarySetAppearanceCache[setId] = C_TransmogSets.GetSetPrimaryAppearances(setId)
+    end
+
+    return primarySetAppearanceCache[setId]
 end
 
 function private.getCurrentClassMask()
@@ -229,7 +221,7 @@ function private.validateSet(setId)
     if validSetCache[setId] == nil then
         local valid = false
 
-        for _, appearanceInfo in ipairs(setLoader.getSetPrimaryAppearancesCached(setId)) do
+        for _, appearanceInfo in ipairs(private.getSetPrimaryAppearancesCached(setId)) do
             local sourceInfo = sourceLoader.getInfo(appearanceInfo.appearanceID)
 
             if sourceInfo then
@@ -256,13 +248,13 @@ function private.validateSet(setId)
 end
 
 function private.iterateSetApperances(setId, callback)
-    for _, appearanceInfo in ipairs(setLoader.getSetPrimaryAppearancesCached(setId)) do
+    for _, appearanceInfo in ipairs(private.getSetPrimaryAppearancesCached(setId)) do
         local sourceInfo = sourceLoader.getInfo(appearanceInfo.appearanceID)
 
         if sourceInfo then
             local slot = C_Transmog.GetSlotForInventoryType(sourceInfo.invType)
 
-            if (callback(slot, sourceInfo) == false) then
+            if callback(slot, sourceInfo) == false then
                 break
             end
         end
@@ -283,21 +275,23 @@ function private.getSetSlotSourceIds(setId, slot)
                 sourceMap[primarySourceInfo.sourceID] = true
             end
 
-            for _, sourceInfo in ipairs(overrides.callOriginal('GetSourcesForSlot', setId, slot)) do
+            for _, sourceInfo in ipairs(C_TransmogSets.GetSourcesForSlot(setId, slot)) do
                 if sourceInfo.isCollected then
                     sourceMap[sourceInfo.sourceID] = true
                 end
             end
 
-            for _, sourceInfo in ipairs(C_TransmogCollection.GetAppearanceSources(
-                primarySourceInfo.visualID,
-                C_TransmogCollection.GetCategoryForItem(primarySourceInfo.sourceID),
-                TransmogUtil.GetTransmogLocation(
-                    slot,
-                    Enum.TransmogType.Appearance,
-                    Enum.TransmogModification.Main
-                )
-            ) or {}) do
+            for _, sourceInfo in ipairs(
+                C_TransmogCollection.GetAppearanceSources(
+                    primarySourceInfo.visualID,
+                    C_TransmogCollection.GetCategoryForItem(primarySourceInfo.sourceID),
+                    TransmogUtil.GetTransmogLocation(
+                        slot,
+                        Enum.TransmogType.Appearance,
+                        Enum.TransmogModification.Main
+                    )
+                ) or {}
+            ) do
                 if sourceInfo.isCollected then
                     sourceMap[sourceInfo.sourceID] = true
                 end

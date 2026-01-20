@@ -1,13 +1,12 @@
 MogPartialSets (WoW addon)
 ##########################
 
-Tired of having to search for set items one-by-one just because you are missing an unimportant piece?
-This small addon will let you see incomplete sets in the transmogrification dialog and more!
+This small addon will let you see partially collected sets better in the transmogrification UI and more!
 
 Features
 ********
 
-This addon adds a new "Filter" button to the top-right of the transmogrification window (when on the "Sets" tab).
+This addon extends the "Filter" menu of the "Sets" tab in the transmogrification UI.
 
 The following options are available:
 
@@ -17,8 +16,6 @@ The following options are available:
 - **hide missing set items** - when applying a set, replace all missing slots of that set with a hidden item
 - **hide items not in set** - when applying a set, replace all other currently worn items with hidden items
 - **max missing pieces** - maximum number of missing pieces for a set to show up in the list
-- **equipment slots** - set options for specific slots
-
-  - **ignored** - if enabled, the slot will not count towards **max missing pieces**
-  - **hidden** - if enabled, the slot will always be set to a hidden item
-    (and also not count towards **max missing pieces**)
+- **ignored slots** - set slots which don't count towards **max missing pieces**
+- **hidden slots** - set slots which will always be set to a hidden item
+  (and also not count towards **max missing pieces**)

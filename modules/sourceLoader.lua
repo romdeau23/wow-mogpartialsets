@@ -1,6 +1,5 @@
 local _, addon = ...
 local sourceLoader, private = addon.module('sourceLoader'), {}
-local overrides = addon.namespace('overrides');
 local cache = {} -- sourceId => entry
 local pendingTimeout = 10
 
@@ -32,7 +31,7 @@ function sourceLoader.clearCache()
 end
 
 function private.createEntry(sourceId)
-    local info = overrides.callOriginal('GetSourceInfo', sourceId)
+    local info = C_TransmogCollection.GetSourceInfo(sourceId)
     local entry
 
     if info then
@@ -58,7 +57,7 @@ function private.reloadEntry(entry)
         return
     end
 
-    local info = overrides.callOriginal('GetSourceInfo', entry.info.sourceID)
+    local info = C_TransmogCollection.GetSourceInfo(entry.info.sourceID)
 
     if info then
         entry.info = info

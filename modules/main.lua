@@ -1,20 +1,37 @@
-local _, addon = ...
+local addonName, addon = ...
 local main, private = addon.module('main'), {}
-local initialized = false
+local conflictingAddons = {'ExtendedSets', 'BetterWardrobe'}
 
 function main.init()
-    addon.overrides.prepareGlobal()
-    addon.on('TRANSMOGRIFY_UPDATE', private.onTransmogrifyAction)
-    addon.on('TRANSMOGRIFY_OPEN', private.onTransmogrifyAction)
+    addon.on('TRANSMOGRIFY_OPEN', private.onTransmogrifyOpen)
 end
 
-function private.onTransmogrifyAction()
-    if not initialized and WardrobeCollectionFrame then
-        addon.overrides.prepareWardrobe()
-        addon.overrides.enable()
-        addon.ui.attach()
-        initialized = true
+function private.onTransmogrifyOpen()
+    -- check conflicting addons
+    for _, conflictingAddonName in ipairs(conflictingAddons) do
+        if C_AddOns.IsAddOnLoaded(conflictingAddonName) then
+            print(string.format(
+                '|cffff0000[ERROR] %s cannot be used together with %s|r',
+                addonName,
+                conflictingAddonName
+            ))
+
+            return false
+        end
     end
 
-    return not initialized
+    -- hook the transmog UI
+    if C_AddOns.IsAddOnLoaded('Blizzard_Transmog') then
+        addon.ui.hook()
+    else
+        addon.on('ADDON_LOADED', function (loadedAddonName)
+            if loadedAddonName == 'Blizzard_Transmog' then
+                addon.ui.hook()
+
+                return false
+            end
+        end)
+    end
+
+    return false
 end
