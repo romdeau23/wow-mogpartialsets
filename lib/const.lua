@@ -1,8 +1,10 @@
-local _, addon = ...
+---@class Addon
+local addon = select(2, ...)
+---@class ConstLib
 local const = addon.namespace('const')
 
--- classId => mask
--- https://warcraft.wiki.gg/wiki/ClassId
+---https://warcraft.wiki.gg/wiki/ClassId
+---@type table<number, number> classId => mask
 const.classMasks = {
     [1] = 2 ^ (1 - 1), -- WARRIOR
     [2] = 2 ^ (2 - 1), -- PALADIN
@@ -19,7 +21,7 @@ const.classMasks = {
     [13] = 2 ^ (13 - 1), -- EVOKER
 }
 
--- classId => mask
+---@type table<number, number> classId => mask
 const.armorTypeClassMasks = {
     -- cloth
     [5] = bit.bor(const.classMasks[5], const.classMasks[8], const.classMasks[9]), -- PRIEST
@@ -43,7 +45,7 @@ const.armorTypeClassMasks = {
     [6] = bit.bor(const.classMasks[1], const.classMasks[2], const.classMasks[6]), -- DEATHKNIGHT
 }
 
--- slot => itemId
+---@type table<number, number> slot => itemId
 const.hiddenItemMap = {
     [INVSLOT_HEAD] = 134110,
     [INVSLOT_SHOULDER] = 134112,
@@ -58,12 +60,14 @@ const.hiddenItemMap = {
     [INVSLOT_FEET] = 168664,
 }
 
--- slot => label
+---@type table<number, string> slot => label
 const.slotLabelMap = {
     [INVSLOT_HEAD] = HEADSLOT,
     [INVSLOT_SHOULDER] = SHOULDERSLOT,
     [INVSLOT_BACK] = BACKSLOT,
     [INVSLOT_CHEST] = CHESTSLOT,
+    [INVSLOT_BODY] = SHIRTSLOT,
+    [INVSLOT_TABARD] = TABARDSLOT,
     [INVSLOT_WRIST] = WRISTSLOT,
     [INVSLOT_HAND] = HANDSSLOT,
     [INVSLOT_WAIST] = WAISTSLOT,

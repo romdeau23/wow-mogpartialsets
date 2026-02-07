@@ -1,5 +1,8 @@
-local _, addon = ...
+---@class Addon
+local addon = select(2, ...)
 
+---@param ... string
+---@return table
 function addon.namespace(...)
     local namespace = addon
 

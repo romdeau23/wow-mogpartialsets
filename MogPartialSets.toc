@@ -1,9 +1,10 @@
 ## Interface: 120000, 120001
 ## Title: MogPartialSets
-## Version: 3.0.0
+## Version: 4.0.0
 ## Author: romdeau23
-## Notes: Show incomplete appearance sets in the transmogrification dialog
+## Notes: Makes it easy to see and apply partially-collected sets in the transmog UI
 ## SavedVariables: MogPartialSetsAddonConfig
+## SavedVariablesPerCharacter: MogPartialSetsAddonProfile
 ## IconTexture: Interface\AddOns\MogPartialSets\icon
 ## X-Website: https://github.com/romdeau23/wow-mogpartialsets
 ## Category-enUS: Collections
@@ -19,15 +20,18 @@
 ## Category-zhTW: 戰隊收藏
 
 lib/globals.lua
+lib/pack.lua
 lib/namespace.lua
 lib/const.lua
-lib/defer.lua
-lib/event.lua
+lib/debounce.lua
+lib/queueWorker.lua
+lib/eventBus.lua
+lib/gameEvent.lua
 lib/module.lua
+lib/savedVar.lua
 modules/config.lua
 modules/setLoader.lua
-modules/sourceLoader.lua
 modules/ui.lua
 modules/ui/filter.lua
-modules/ui/sets.lua
+modules/ui/setsTab.lua
 modules/main.lua

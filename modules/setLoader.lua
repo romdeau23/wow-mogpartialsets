@@ -1,329 +1,463 @@
-local _, addon = ...
+---@class Addon
+local addon = select(2, ...)
+---@class SetLoaderModule
 local setLoader, private = addon.module('setLoader'), {}
-local sourceLoader = addon.namespace('sourceLoader')
-local config = addon.namespace('config')
-local validSetCache = {} -- setId => bool
-local primarySetAppearanceCache = {} -- setId => TransmogSetPrimaryAppearanceInfo[]
-local setSlotSourceIdCache = {} -- setId => slot => sourceId[]
-local usableSetSlotSourceCache = {} -- setId => slot => AppearanceSourceInfo
+
+---@type SetLoaderModule.SetMap
+local loadedSets = {}
+
+---@type QueueWorkerLib.Worker
+local loadSetWorker
+local loadSetWorkerFrameTimeLimit = 0.005
+local loadSetWorkerUpdateFreq = 0.25
+---@type number?
+local loadSetWorkerBusySince
+
+---@type table<number, SetLoaderModule.PendingSourceInfo>
+local pendingSourceMap = {}
+local pendingSourceTimeoutSecs = 10.0
+
+local updateDebounce = 0.5
+---@type number?
+local lastUpdate
+
+---@class SetLoaderModule.Set
+---@field info TransmogSetInfo
+---@field slots SetLoaderModule.SlotMap
+
+---@class SetLoaderModule.Slot
+---@field invSlotId number
+---@field sources SetLoaderModule.SourceMap
+---@field primarySourceId number
+---@field usableSourceId number?
+
+---@class SetLoaderModule.Source
+---@field sourceId number
+---@field usable boolean
+---@field pending boolean
+
+---@class SetLoaderModule.PendingSourceInfo
+---@field sourceId number
+---@field invSlotId number
+---@field firstFetchedAt number
+---@field sets table<number, true>
+
+---@alias SetLoaderModule.SetMap table<number, SetLoaderModule.Set>
+---@alias SetLoaderModule.SlotMap table<number, SetLoaderModule.Slot>
+---@alias SetLoaderModule.SourceMap table<number, SetLoaderModule.Source>
 
 function setLoader.init()
+    loadSetWorker = addon.createQueueWorker(
+        private.loadSet,
+        private.onLoadSetWorkerUpdate,
+        loadSetWorkerFrameTimeLimit,
+        loadSetWorkerUpdateFreq
+    )
+end
+
+function setLoader.hook()
+    addon.on('TRANSMOG_COLLECTION_ITEM_UPDATE', private.onItemUpdate)
     addon.on('TRANSMOG_COLLECTION_SOURCE_ADDED', private.onSourceAddedOrRemoved)
     addon.on('TRANSMOG_COLLECTION_SOURCE_REMOVED', private.onSourceAddedOrRemoved)
+    addon.on('TRANSMOG_SETS_UPDATE_FAVORITE', private.onFavoritesUpdated)
 end
 
-function setLoader.clearCaches()
-    validSetCache = {}
-    primarySetAppearanceCache = {}
-    setSlotSourceIdCache = {}
-    usableSetSlotSourceCache = {}
+--- @param setId number
+--- @return SetLoaderModule.Set?
+function setLoader.getSet(setId)
+    if not loadedSets[setId] then
+        local setInfo = C_TransmogSets.GetSetInfo(setId)
+
+        if not setInfo then
+            return nil
+        end
+
+        return private.loadSet(setInfo)
+    end
+
+    return loadedSets[setId]
 end
 
-function setLoader.getUsableSets()
+---@param classMask integer
+---@return SetLoaderModule.SetMap
+function setLoader.getAllSets(classMask)
     local sets = {}
-    local classMask = private.getCurrentClassMask()
     local faction = UnitFactionGroup('player')
 
-    for _, set in ipairs(C_TransmogSets.GetAllSets()) do
+    for _, setInfo in ipairs(C_TransmogSets.GetAllSets()) do
         if
             -- match class
-            (set.classMask == 0 or bit.band(set.classMask, classMask) ~= 0)
+            (setInfo.classMask == 0 or bit.band(setInfo.classMask, classMask) ~= 0)
             -- match faction
-            and (set.requiredFaction == nil or set.requiredFaction == faction)
-            -- validate set
-            and private.validateSet(set.setID)
+            and (not setInfo.requiredFaction or setInfo.requiredFaction == faction)
         then
-            sets[set.setID] = set
+            local setId = setInfo.setID
+            sets[setId] = loadedSets[setId] or loadSetWorker.add(setId, setInfo)
         end
     end
 
     return sets
 end
 
-function setLoader.getSetProgress(setId)
-    local collectedSlots = 0
-    local totalSlots = 0
+---@return SetLoaderModule.SetMap
+function setLoader.getAvailableSets()
+    local sets = {}
 
-    private.iterateSetApperances(setId, function (slot)
-        if
-            not config.isIgnoredSlot(slot)
-            and not config.isHiddenSlot(slot)
-        then
-            totalSlots = totalSlots + 1
+    for _, setInfo in ipairs(C_TransmogSets.GetAvailableSets()) do
+        local setId = setInfo.setID
+        sets[setId] = loadedSets[setId] or loadSetWorker.add(setId, setInfo)
+    end
 
-            if setLoader.getUsableSetSlotSource(setId, slot) then
-                collectedSlots = collectedSlots + 1
-            end
-        end
-    end)
-
-    return collectedSlots, totalSlots
+    return sets
 end
 
-function setLoader.getRealSetProgress(setId)
-    local collectedSlots = 0
-    local totalSlots = 0
-
-    private.iterateSetApperances(setId, function (slot)
-        totalSlots = totalSlots + 1
-
-        if setLoader.getUsableSetSlotSource(setId, slot) then
-            collectedSlots = collectedSlots + 1
-        end
-    end)
-
-    return collectedSlots, totalSlots
+function setLoader.clearSetData()
+    loadedSets = {}
+    pendingSourceMap = {}
 end
 
-function setLoader.setHasFavoriteVariant(set, availableSets)
-    local baseSetId
+function setLoader.isLoading()
+    return loadSetWorker.busy()
+end
 
-    if set.baseSetID then
-        -- this is a variant set
-        baseSetId = set.baseSetID
+function setLoader.updatePerformance()
+    local frameTimeLimit
+    local fps = GetFramerate()
 
-        -- check whether the base set is favorited
-        if availableSets[set.baseSetID] and availableSets[set.baseSetID].favorite then
-            return true
-        end
+    if fps >= 90 then
+        frameTimeLimit = 0.008
+    elseif fps >= 60 then
+        frameTimeLimit = 0.005
     else
-        -- this is a base set
-        baseSetId = set.setID
+        frameTimeLimit = 0.003
     end
 
-    -- check variants of the base set
-    local variants = C_TransmogSets.GetVariantSets(baseSetId)
-
-    if type(variants) == 'table' then
-        for _, variant in ipairs(variants) do
-            if variant.favorite then
-                return true
-            end
-        end
-    end
-
-    return false
+    loadSetWorker.setFrameTimeLimit(frameTimeLimit)
 end
 
--- this is used when a set is being applied in the transmog UI
-function setLoader.getSetAppearancesForLoadSet(setId)
-    local appearances = {}
-    local slotSourceIds = {}
-    local skippedSlots = {}
+---@param setInfo TransmogSetInfo
+---@return SetLoaderModule.Set
+function private.loadSet(setInfo)
+    local set = private.createSet(setInfo)
+    loadedSets[setInfo.setID] = set
 
-    -- add collected appearances
-    private.iterateSetApperances(setId, function (slot)
-        local sourceId
-
-        if config.isHiddenSlot(slot) then
-            -- always hidden slot
-            sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
-        else
-            local usableSource = setLoader.getUsableSetSlotSource(setId, slot)
-
-            if usableSource then
-                -- usable source
-                sourceId = usableSource.sourceID
-            elseif config.db.useHiddenIfMissing then
-                -- hidden item
-                sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
-            else
-                skippedSlots[slot] = true
-                return
-            end
-
-            table.insert(appearances, {collected = true, appearanceID = sourceId})
-            slotSourceIds[slot] = sourceId
-        end
-    end)
-
-    -- add other slots as hidden, if enabled
-    if config.db.hideItemsNotInSet then
-        for slot in pairs(addon.const.hiddenItemMap) do
-            if not slotSourceIds[slot] and not skippedSlots[slot] then
-                local sourceId = sourceLoader.getSourceIdForHiddenSlot(slot)
-                table.insert(appearances, {collected = true, appearanceID = sourceId})
-                slotSourceIds[slot] = sourceId
-            end
-        end
-    end
-
-    return appearances, slotSourceIds
+    return set
 end
 
-function setLoader.getUsableSetSlotSource(setId, slot)
-    if usableSetSlotSourceCache[setId] and usableSetSlotSourceCache[setId][slot] then
-        return usableSetSlotSourceCache[setId][slot]
-    end
+---@param setInfo TransmogSetInfo
+---@return SetLoaderModule.Set
+function private.createSet(setInfo)
+    local set = {
+        info = setInfo,
+        slots = private.loadSlots(setInfo.setID),
+    }
 
-    for _, sourceId in ipairs(private.getSetSlotSourceIds(setId, slot)) do
-        local sourceInfo, isPending = sourceLoader.getInfo(sourceId, true)
-
-        if
-            sourceInfo
-            and sourceInfo.useErrorType == nil
-            and sourceInfo.isValidSourceForPlayer ~= false
-            and sourceInfo.canDisplayOnPlayer ~= false
-            and sourceInfo.meetsTransmogPlayerCondition ~= false
-        then
-            if isPending then
-                sourceInfo = CopyTable(sourceInfo, true)
-                sourceInfo.name = '' -- avoid nil during pending item info
-            else
-                assert(sourceInfo.name)
-                if not usableSetSlotSourceCache[setId] then
-                    usableSetSlotSourceCache[setId] = {}
-                end
-
-                usableSetSlotSourceCache[setId][slot] = sourceInfo
-            end
-
-            return sourceInfo
-        end
-    end
-end
-
-function setLoader.iterateSetApperances(setId, callback)
-    return private.iterateSetApperances(setId, callback)
-end
-
-function setLoader.getMissingSlots(setId)
-    local missingSlots = {}
-
-    private.iterateSetApperances(setId, function (slot)
-        if not setLoader.getUsableSetSlotSource(setId, slot) then
-            table.insert(missingSlots, slot)
-        end
-    end)
-
-    return missingSlots
-end
-
-function private.getSetPrimaryAppearancesCached(setId)
-    if primarySetAppearanceCache[setId] == nil then
-        primarySetAppearanceCache[setId] = C_TransmogSets.GetSetPrimaryAppearances(setId)
-    end
-
-    return primarySetAppearanceCache[setId]
-end
-
-function private.getCurrentClassMask()
-    local classId = select(3, UnitClass('player'))
-
-    if config.db.showExtraSets then
-        return addon.const.armorTypeClassMasks[classId]
-    end
-
-    return addon.const.classMasks[classId]
-end
-
-function private.validateSet(setId)
-    if validSetCache[setId] == nil then
-        local valid = false
-
-        for _, appearanceInfo in ipairs(private.getSetPrimaryAppearancesCached(setId)) do
-            local sourceInfo = sourceLoader.getInfo(appearanceInfo.appearanceID)
-
-            if sourceInfo then
-                local slot = C_Transmog.GetSlotForInventoryType(sourceInfo.invType)
-                local slotSources = C_TransmogSets.GetSourcesForSlot(setId, slot)
-                local index = CollectionWardrobeUtil.GetDefaultSourceIndex(slotSources, appearanceInfo.appearanceID)
-
-                if slotSources[index] then
-                    setLoader.getUsableSetSlotSource(setId, slot) -- trigger loading of source data
-
-                    valid = true
+    for invSlotId, slot in pairs(set.slots) do
+        if not slot.usableSourceId then
+            -- unusable slot, keep track of any pending sources
+            for sourceId, source in pairs(slot.sources) do
+                if source.pending then
+                    if pendingSourceMap[sourceId] then
+                        pendingSourceMap[sourceId].sets[setInfo.setID] = true
+                    else
+                        pendingSourceMap[sourceId] = {
+                            sourceId = sourceId,
+                            invSlotId = invSlotId,
+                            firstFetchedAt = GetTime(),
+                            sets = {[setInfo.setID] = true},
+                        }
+                    end
                 end
             end
-
-            if not valid then
-                break
-            end
         end
-
-        validSetCache[setId] = valid
     end
 
-    return validSetCache[setId]
+    return set
 end
 
-function private.iterateSetApperances(setId, callback)
-    for _, appearanceInfo in ipairs(private.getSetPrimaryAppearancesCached(setId)) do
-        local sourceInfo = sourceLoader.getInfo(appearanceInfo.appearanceID)
+---@param setId number
+---@return SetLoaderModule.SlotMap
+function private.loadSlots(setId)
+    ---@type SetLoaderModule.SlotMap
+    local slots = {}
+
+    for _, appearance in ipairs(C_TransmogSets.GetSetPrimaryAppearances(setId) or {}) do
+        local sourceInfo = C_TransmogCollection.GetSourceInfo(appearance.appearanceID)
 
         if sourceInfo then
-            local slot = C_Transmog.GetSlotForInventoryType(sourceInfo.invType)
+            local invSlotId = C_Transmog.GetSlotForInventoryType(sourceInfo.invType)
 
-            if callback(slot, sourceInfo) == false then
-                break
-            end
-        end
-    end
-end
+            if invSlotId then
+                if not slots[invSlotId] then
+                    local sources = private.loadSources(setId, invSlotId, sourceInfo)
+                    local usableSourceId
 
-function private.getSetSlotSourceIds(setId, slot)
-    if setSlotSourceIdCache[setId] and setSlotSourceIdCache[setId][slot] then
-        return setSlotSourceIdCache[setId][slot]
-    end
+                    for sourceId, source in pairs(sources) do
+                        if source.usable then
+                            usableSourceId = sourceId
+                            break
+                        end
+                    end
 
-    local sourceMap = {}
+                    slots[invSlotId] = {
+                        invSlotId = invSlotId,
+                        sources = sources,
+                        primarySourceId = appearance.appearanceID,
+                        usableSourceId = usableSourceId,
+                    }
+                else
+                    -- sets with multiple primary apperances per slot exist, but are rare
+                    -- append any new sources from that appearance in this case
+                    local slot = slots[invSlotId]
 
-    -- map all known collected source IDs
-    private.iterateSetApperances(setId, function (appearanceSlot, primarySourceInfo)
-        if appearanceSlot == slot then
-            if primarySourceInfo.isCollected then
-                sourceMap[primarySourceInfo.sourceID] = true
-            end
+                    for sourceId, source in pairs(private.loadSources(setId, invSlotId, sourceInfo)) do
+                        if not slot.sources[sourceId] then
+                            slot.sources[sourceId] = source
 
-            for _, sourceInfo in ipairs(C_TransmogSets.GetSourcesForSlot(setId, slot)) do
-                if sourceInfo.isCollected then
-                    sourceMap[sourceInfo.sourceID] = true
-                end
-            end
-
-            for _, sourceInfo in ipairs(
-                C_TransmogCollection.GetAppearanceSources(
-                    primarySourceInfo.visualID,
-                    C_TransmogCollection.GetCategoryForItem(primarySourceInfo.sourceID),
-                    TransmogUtil.GetTransmogLocation(
-                        slot,
-                        Enum.TransmogType.Appearance,
-                        Enum.TransmogModification.Main
-                    )
-                ) or {}
-            ) do
-                if sourceInfo.isCollected then
-                    sourceMap[sourceInfo.sourceID] = true
+                            if source.usable and not slot.usableSourceId then
+                                slot.usableSourceId = source.sourceId
+                            end
+                        end
+                    end
                 end
             end
         end
-    end)
-
-    -- convert to list, cache, return
-    local sourceIds = {}
-
-    for sourceId in pairs(sourceMap) do
-        table.insert(sourceIds, sourceId)
     end
 
-    if not setSlotSourceIdCache[setId] then
-        setSlotSourceIdCache[setId] = {}
-    end
-
-    setSlotSourceIdCache[setId][slot] = sourceIds
-
-    return sourceIds
+    return slots
 end
 
+---@param setId number
+---@param invSlotId number
+---@param primarySourceInfo AppearanceSourceInfo
+---@return SetLoaderModule.SourceMap
+function private.loadSources(setId, invSlotId, primarySourceInfo)
+    local sources = {}
+
+    -- add primary source
+    if primarySourceInfo.isCollected then
+        sources[primarySourceInfo.sourceID] = private.createSource(primarySourceInfo)
+    end
+
+    -- add "official" sources
+    for _, sourceInfo in ipairs(C_TransmogSets.GetSourcesForSlot(setId, invSlotId) or {}) do
+        if sourceInfo.isCollected and not sources[sourceInfo.sourceID] then
+            sources[sourceInfo.sourceID] = private.createSource(sourceInfo)
+        end
+    end
+
+    -- add "lookalikes"
+    local lookalikes = C_TransmogCollection.GetAppearanceSources(
+        primarySourceInfo.visualID,
+        C_TransmogCollection.GetCategoryForItem(primarySourceInfo.sourceID),
+        TransmogUtil.GetTransmogLocation(
+            invSlotId,
+            Enum.TransmogType.Appearance,
+            Enum.TransmogModification.Main
+        )
+    )
+
+    for _, sourceInfo in ipairs(lookalikes or {}) do
+        if sourceInfo.isCollected and not sources[sourceInfo.sourceID] then
+            sources[sourceInfo.sourceID] = private.createSource(sourceInfo)
+        end
+    end
+
+    return sources
+end
+
+---@param sourceInfo AppearanceSourceInfo
+---@return SetLoaderModule.Source
+function private.createSource(sourceInfo)
+    local pending = (sourceInfo.name == nil)
+
+    return {
+        sourceId = sourceInfo.sourceID,
+        usable = not pending and private.isUsableSource(sourceInfo),
+        pending = pending,
+    }
+end
+
+---@param source AppearanceSourceInfo
+---@return boolean
+function private.isUsableSource(source)
+    return (
+        (source.useErrorType == Enum.TransmogUseErrorType.None or source.useErrorType == nil)
+        and source.isValidSourceForPlayer ~= false
+        and source.canDisplayOnPlayer ~= false
+        and source.meetsTransmogPlayerCondition ~= false
+    )
+end
+
+function private.onItemUpdate()
+    if next(pendingSourceMap) == nil then
+        return -- nothing to do
+    end
+
+    local newPendingSourceMap = {}
+    local skippedSourceMap = {}
+    local setsChanged = false
+    local now = GetTime()
+
+    for sourceId, info in pairs(pendingSourceMap) do
+        if not skippedSourceMap[sourceId] then
+            local result, setUsableSlotsChanged = private.checkPendingSource(info, now)
+
+            if result == 'pending' then
+                -- still pending - check again later
+                newPendingSourceMap[sourceId] = info
+            elseif result == 'timeout' then
+                -- timeout - don't try to load again
+                -- (some sources are broken and just never load, but trying to triggers TRANSMOG_COLLECTION_ITEM_UPDATE again = loop)
+            elseif result == 'loaded' then
+                -- loaded
+                if setUsableSlotsChanged then
+                    setsChanged = true
+
+                    -- given that this source is now loaded and usable, we don't need to check
+                    -- any other pending sources for that slot in all affected sets
+                    for setId in pairs(info.sets) do
+                        local set = loadedSets[setId]
+                        assert(set)
+                        local slot = set.slots[info.invSlotId]
+                        assert(slot)
+
+                        for slotSourceId, source in pairs(slot.sources) do
+                            if slotSourceId ~= sourceId and source.pending and pendingSourceMap[slotSourceId] then
+                                -- other pending source is in pendingSourceMap, unmap this set from it
+                                local hasOtherSets = private.unmapSetFromPendingSource(slotSourceId, setId)
+
+                                if not hasOtherSets then
+                                    -- no sets are waiting for this source now, we can safely skip it fully
+                                    skippedSourceMap[slotSourceId] = true
+                                end
+                            end
+                        end
+                    end
+                end
+            else
+                error('Unexpected result: ' .. result)
+            end
+        end
+    end
+
+    pendingSourceMap = newPendingSourceMap
+
+    if setsChanged then
+        private.dispatchUpdateDebounced()
+    end
+end
+
+---@param info SetLoaderModule.PendingSourceInfo
+---@param now number
+---@return 'pending'|'timeout'|'loaded' result
+---@return boolean? setUsableSlotsChanged
+function private.checkPendingSource(info, now)
+    if now - info.firstFetchedAt >= pendingSourceTimeoutSecs then
+        return 'timeout'
+    end
+
+    local sourceInfo = C_TransmogCollection.GetSourceInfo(info.sourceId)
+
+    if not sourceInfo or sourceInfo.name == nil then
+        return 'pending'
+    end
+
+    local usable = private.isUsableSource(sourceInfo)
+    local setUsableSlotsChanged = false
+
+    for setId in pairs(info.sets) do
+        local set = loadedSets[setId]
+        assert(set)
+        local slot = set.slots[info.invSlotId]
+        assert(slot)
+        local source = slot.sources[info.sourceId]
+        assert(source)
+
+        source.usable = usable
+        source.pending = false
+
+        if usable and not slot.usableSourceId then
+            slot.usableSourceId = info.sourceId
+            setUsableSlotsChanged = true
+        end
+    end
+
+    return 'loaded', setUsableSlotsChanged
+end
+
+---@param sourceId number
+---@param setId number
+---@return boolean hasOtherSets
+function private.unmapSetFromPendingSource(sourceId, setId)
+    pendingSourceMap[sourceId].sets[setId] = nil
+
+    return next(pendingSourceMap[sourceId].sets) ~= nil
+end
+
+---@param sourceId  number
 function private.onSourceAddedOrRemoved(sourceId)
-    local sets = C_TransmogSets.GetSetsContainingSourceID(sourceId)
+    -- clear pending state
+    pendingSourceMap[sourceId] = nil
 
-    if sets then
-        for _, setId in pairs(sets) do
-            validSetCache[setId] = nil
-            primarySetAppearanceCache[setId] = nil
-            setSlotSourceIdCache[setId] = nil
-            usableSetSlotSourceCache[setId] = nil
+    -- re-load affected sets
+    for _, setId in ipairs(C_TransmogSets.GetSetsContainingSourceID(sourceId) or {}) do
+        if loadedSets[setId] then
+            local setInfo = C_TransmogSets.GetSetInfo(setId)
+
+            if setInfo then
+                loadedSets[setId] = loadSetWorker.add(setId, setInfo)
+            end
         end
     end
 end
+
+function private.onFavoritesUpdated()
+    -- no payload, so have to iterate all sets
+    for setId, set in pairs(loadedSets) do
+        local setInfo = C_TransmogSets.GetSetInfo(setId)
+
+        if setInfo then
+            set.info.favorite = setInfo.favorite
+        end
+    end
+end
+
+function private.onLoadSetWorkerUpdate()
+    if not loadSetWorker.busy() then
+        -- loading just completed, update immediately
+        loadSetWorkerBusySince = nil
+        private.dispatchUpdate()
+
+        return
+    end
+
+    -- still some sets left to load
+    local now = GetTime()
+
+    if not loadSetWorkerBusySince then
+        loadSetWorkerBusySince = math.max(0, now - loadSetWorkerUpdateFreq)
+    end
+
+    -- if the loading process takes more than a second to finish, start updating at least once a second
+    if
+        now - loadSetWorkerBusySince > 1
+        and (
+            not lastUpdate
+            or now - lastUpdate >= 1
+        )
+    then
+        private.dispatchUpdate()
+    end
+end
+
+function private.dispatchUpdate()
+    lastUpdate = GetTime()
+    addon.event.dispatch('setLoader.update')
+end
+
+private.dispatchUpdateDebounced = addon.debounce(updateDebounce, function ()
+    if not loadSetWorker.busy() then
+        private.dispatchUpdate()
+    end
+end)

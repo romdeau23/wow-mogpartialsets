@@ -1,7 +1,10 @@
-local _, addon = ...
+---@class Addon
+local addon = select(2, ...)
 local frame = CreateFrame('Frame')
 local listenerMap = {}
 
+---@param eventName string
+---@param callback function
 function addon.on(eventName, callback)
     if not listenerMap[eventName] then
         frame:RegisterEvent(eventName)
@@ -11,6 +14,8 @@ function addon.on(eventName, callback)
     table.insert(listenerMap[eventName], callback)
 end
 
+---@param eventName string
+---@param callback function
 function addon.off(eventName, callback)
     if listenerMap[eventName] then
         for i, listener in ipairs(listenerMap[eventName]) do
@@ -30,7 +35,7 @@ function addon.off(eventName, callback)
     return false
 end
 
-frame:SetScript('onEvent', function (_, eventName, ...)
+frame:SetScript('OnEvent', function (_, eventName, ...)
     local toClear
 
     for index, listener in ipairs(listenerMap[eventName]) do

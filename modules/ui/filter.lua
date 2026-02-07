@@ -1,11 +1,20 @@
-local _, addon = ...
+---@class Addon
+local addon = select(2, ...)
+---@class UI.FilterModule
 local filter, private = addon.module('ui', 'filter'), {}
-local hooked = false
-local slotOptions = {
-    INVSLOT_HEAD, INVSLOT_SHOULDER, INVSLOT_BACK,
-    INVSLOT_CHEST, INVSLOT_WRIST, INVSLOT_HAND,
+---@type ConfigModule
+local config = addon.namespace('config')
+local setSlotOptions = {
+    INVSLOT_HEAD, INVSLOT_SHOULDER, INVSLOT_BACK, INVSLOT_CHEST,
+    INVSLOT_TABARD, INVSLOT_WRIST, INVSLOT_HAND, INVSLOT_WAIST,
+    INVSLOT_LEGS, INVSLOT_FEET,
+}
+local armorSlotOptions = {
+    INVSLOT_HEAD, INVSLOT_SHOULDER, INVSLOT_BACK, INVSLOT_CHEST,
+    INVSLOT_TABARD, INVSLOT_BODY, INVSLOT_WRIST, INVSLOT_HAND,
     INVSLOT_WAIST, INVSLOT_LEGS, INVSLOT_FEET,
 }
+local hooked = false
 
 function filter.hook(setsFrame)
     if hooked then
@@ -26,6 +35,14 @@ end
 function private.setupButton(filterButton)
     local originalGenerator = filterButton.menuGenerator
 
+    local function getOptionTooltipFn(title, text)
+        return function (tooltip)
+            tooltip:SetOwner(tooltip:GetOwner(), 'ANCHOR_LEFT')
+            GameTooltip_SetTitle(tooltip, title)
+            GameTooltip_AddNormalLine(tooltip, text)
+        end
+    end
+
     filterButton:SetupMenu(function(dropdown, rootDescription)
         originalGenerator(dropdown, rootDescription)
 
@@ -34,116 +51,149 @@ function private.setupButton(filterButton)
         rootDescription:CreateTitle('MogPartialSets')
 
         -- show extra sets
-        local extraSets = rootDescription:CreateCheckbox(
+        local showExtraSetsCheckbox = rootDescription:CreateCheckbox(
             'Show extra sets',
-            function () return addon.config.db.showExtraSets end,
-            function () private.toggleConfigOption('showExtraSets') end
+            function () return config.showExtraSets() end,
+            function () config.setShowExtraSets(not config.showExtraSets()) end
         )
 
-        extraSets:SetEnabled(function () return not addon.ui.sets.isPveOrPveFiltered() end)
+        local function updateShowExtraSetsCheckbox()
+            showExtraSetsCheckbox:SetEnabled(not addon.ui.setsTab.isPveOrPvpFiltered())
+        end
 
-        extraSets:SetTooltip(function(tooltip, elementDescription)
-            if not addon.ui.sets.isPveOrPveFiltered() then
-                return
+        updateShowExtraSetsCheckbox()
+
+        for _, desc in rootDescription:EnumerateElementDescriptions() do
+            local data = desc:GetData()
+
+            if data == LE_TRANSMOG_SET_FILTER_PVE or data == LE_TRANSMOG_SET_FILTER_PVP then
+                -- update enabled state when PvE/PvP filter changes
+                desc:HookResponder(updateShowExtraSetsCheckbox)
             end
+        end
 
-            GameTooltip_AddNormalLine(tooltip, 'Unavailable due to PvP/PvE filter')
-            local line = _G[tooltip:GetName() .. 'TextLeft' .. tooltip:NumLines()]
+        local enabledExtraSetsTooltipFn = getOptionTooltipFn('Show extra sets', 'Show all the sets you can use, not just your class sets.')
 
-            if line then
-                line:SetFontObject(GameFontDisableSmall)
-                line:SetTextColor(0.5, 0.5, 0.5)
+        showExtraSetsCheckbox:SetTooltip(function(tooltip, elementDescription)
+            enabledExtraSetsTooltipFn(tooltip)
+
+            if addon.ui.setsTab.isPveOrPvpFiltered() then
+                GameTooltip_AddErrorLine(tooltip, 'Suppressed by PvE/PvP filter')
             end
         end)
 
         -- only favorites
         rootDescription:CreateCheckbox(
             'Only favorites',
-            function () return addon.config.db.onlyFavorite end,
-            function () private.toggleConfigOption('onlyFavorite') end
+            function () return config.onlyFavorite() end,
+            function () config.setOnlyFavorite(not config.onlyFavorite()) end
         )
 
         -- include favorite variants
-        local favoriteVariants = rootDescription:CreateCheckbox(
+        local favoriteVariantsCheckbox = rootDescription:CreateCheckbox(
             'Include favorite variants',
-            function () return addon.config.db.favoriteVariants end,
-            function () private.toggleConfigOption('favoriteVariants') end
+            function () return config.favoriteVariants() end,
+            function () config.setFavoriteVariants(not config.favoriteVariants()) end
         )
 
-        favoriteVariants:SetEnabled(function () return addon.config.db.onlyFavorite end)
-
-        -- use hidden if missing
-        rootDescription:CreateCheckbox(
-            'Use hidden if missing',
-            function () return addon.config.db.useHiddenIfMissing end,
-            function () private.toggleConfigOption('useHiddenIfMissing') end
-        )
+        favoriteVariantsCheckbox:SetEnabled(function () return config.onlyFavorite() end)
 
         -- hide items not in set
-        rootDescription:CreateCheckbox(
+        local hideItemsNotInSetCheckbox = rootDescription:CreateCheckbox(
             'Hide items not in set',
-            function () return addon.config.db.hideItemsNotInSet end,
-            function () private.toggleConfigOption('hideItemsNotInSet') end
+            function () return config.hideItemsNotInSet() end,
+            function () config.setHideItemsNotInSet(not config.hideItemsNotInSet()) end
         )
 
+        hideItemsNotInSetCheckbox:SetTooltip(getOptionTooltipFn('Hide items not in set', 'When applying a set, hide the other slots.'))
+
         -- max missing pieces
-        local maxMissingMenu = rootDescription:CreateButton('Max missing pieces')
+        local maxMissingPiecesButton = rootDescription:CreateButton('Max missing pieces')
 
         for value = 0, 10 do
-            maxMissingMenu:CreateRadio(
+            maxMissingPiecesButton:CreateRadio(
                 tostring(value),
-                function () return addon.config.db.maxMissingPieces == value end,
+                function () return config.maxMissingPieces() == value end,
                 function ()
-                    addon.config.db.maxMissingPieces = value
-                    private.refresh()
+                    config.setMaxMissingPieces(value)
+
                     return MenuResponse.Refresh
                 end
             )
         end
 
         -- ignored slots
-        local ignoredMenu = rootDescription:CreateButton('Ignored slots')
+        local ignoredSlotsButton = rootDescription:CreateButton('Ignored slots')
 
-        for _, slot in ipairs(slotOptions) do
-            ignoredMenu:CreateCheckbox(
-                addon.const.slotLabelMap[slot],
-                function () return addon.config.isIgnoredSlot(slot) end,
-                function ()
-                    addon.config.setIgnoredSlot(slot, not addon.config.isIgnoredSlot(slot))
-                    private.refresh()
-                end
+        ignoredSlotsButton:SetTooltip(getOptionTooltipFn('Ignored slots', 'These slots don\'t count towards max missing pieces.'))
+
+        for _, invSlotId in ipairs(setSlotOptions) do
+            ignoredSlotsButton:CreateCheckbox(
+                addon.const.slotLabelMap[invSlotId],
+                function () return config.ignoredSlots.has(invSlotId) end,
+                function () config.ignoredSlots.set(invSlotId, not config.ignoredSlots.has(invSlotId)) end
             )
         end
+
+        ignoredSlotsButton:CreateButton('Reset', function ()
+            config.ignoredSlots.clear()
+
+            return MenuResponse.Refresh
+        end)
+
+        -- skipped slots
+        local skippedSlotsButton = rootDescription:CreateButton('Skipped slots')
+
+        skippedSlotsButton:SetTooltip(getOptionTooltipFn('Skipped slots', 'These slots are never changed.'))
+
+        for _, invSlotId in ipairs(armorSlotOptions) do
+            skippedSlotsButton:CreateCheckbox(
+                addon.const.slotLabelMap[invSlotId],
+                function () return config.skippedSlots.has(invSlotId) end,
+                function () config.skippedSlots.set(invSlotId, not config.skippedSlots.has(invSlotId)) end
+            )
+        end
+
+        skippedSlotsButton:CreateButton('Reset', function ()
+            config.skippedSlots.clear()
+
+            return MenuResponse.Refresh
+        end)
 
         -- hidden slots
-        local hiddenMenu = rootDescription:CreateButton('Hidden slots')
+        local hiddenSlotsButton = rootDescription:CreateButton('Hidden slots')
 
-        for _, slot in ipairs(slotOptions) do
-            hiddenMenu:CreateCheckbox(
-                addon.const.slotLabelMap[slot],
-                function () return addon.config.isHiddenSlot(slot) end,
-                function ()
-                    addon.config.setHiddenSlot(slot, not addon.config.isHiddenSlot(slot))
-                    private.refresh()
-                end
+        hiddenSlotsButton:SetTooltip(getOptionTooltipFn('Hidden slots', 'These slots are always hidden (and also don\'t count as missing).'))
+
+        for _, invSlotId in ipairs(setSlotOptions) do
+            hiddenSlotsButton:CreateCheckbox(
+                addon.const.slotLabelMap[invSlotId],
+                function () return config.hiddenSlots.has(invSlotId) end,
+                function () config.hiddenSlots.set(invSlotId, not config.hiddenSlots.has(invSlotId)) end
             )
         end
 
-        -- refresh button
+        hiddenSlotsButton:CreateButton('Reset', function ()
+            config.hiddenSlots.clear()
+
+            return MenuResponse.Refresh
+        end)
+
         rootDescription:CreateDivider()
-        rootDescription:CreateButton('Refresh set data', function ()
-            addon.setLoader.clearCaches()
-            addon.sourceLoader.clearCache()
-            private.refresh()
+
+        -- use character profile
+        local useCharacterProfileCheckbox = rootDescription:CreateCheckbox(
+            'Use character profile',
+            function () return config.characterProfileEnabled() end,
+            function () config.setCharacterProfileEnabled(not config.characterProfileEnabled()) end
+        )
+
+        useCharacterProfileCheckbox:SetTooltip(getOptionTooltipFn('Use character profile', 'Save the ignored, skipped and hidden slots per-character.'))
+
+        -- reload button
+        rootDescription:CreateButton('Reload sets', function ()
+            addon.setLoader.clearSetData()
+            addon.ui.setsTab.refreshIfVisible()
         end)
     end)
-end
-
-function private.refresh()
-    addon.ui.sets.refresh()
-end
-
-function private.toggleConfigOption(key)
-    addon.config.db[key] = not addon.config.db[key]
-    private.refresh()
 end

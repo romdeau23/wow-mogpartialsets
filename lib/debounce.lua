@@ -1,6 +1,11 @@
-local _, addon = ...
+---@class Addon
+local addon = select(2, ...)
 
-function addon.defer(delay, callback)
+---@generic T : function
+---@param delay number seconds
+---@param callback T
+---@return T
+function addon.debounce(delay, callback)
     local timer
 
     return function (...)

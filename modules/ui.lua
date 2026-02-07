@@ -1,5 +1,7 @@
-local _, addon = ...
-local ui = addon.module('ui'), {}
+---@class Addon
+local addon = select(2, ...)
+---@class UIModule
+local ui = addon.module('ui')
 local hooked = false
 
 function ui.hook()
@@ -10,9 +12,7 @@ function ui.hook()
     local setsFrame = TransmogFrame.WardrobeCollection.TabContent.SetsFrame
 
     addon.ui.filter.hook(setsFrame)
-    addon.ui.sets.hook(setsFrame)
+    addon.ui.setsTab.hook(setsFrame)
 
     hooked = true
-
-    addon.ui.sets.refresh()
 end

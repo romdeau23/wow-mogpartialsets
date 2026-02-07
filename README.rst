@@ -1,21 +1,32 @@
 MogPartialSets (WoW addon)
 ##########################
 
-This small addon will let you see partially collected sets better in the transmogrification UI and more!
+This lightweight addon improves the transmogrification UI to work better with
+partially collected sets and much more!
+
 
 Features
 ********
 
-This addon extends the "Filter" menu of the "Sets" tab in the transmogrification UI.
+Many of these features can be configured via the "Filter" button on the "Sets" tab.
 
-The following options are available:
 
-- **show extra sets** - show additional sets that are normally hidden (lookalike sets for other classes etc.)
-- **only favorite sets** - show only sets that you have favorited
-- **only favorite variants** - also show variants of favorite sets (if **only favorite sets** is on)
-- **hide missing set items** - when applying a set, replace all missing slots of that set with a hidden item
-- **hide items not in set** - when applying a set, replace all other currently worn items with hidden items
-- **max missing pieces** - maximum number of missing pieces for a set to show up in the list
-- **ignored slots** - set slots which don't count towards **max missing pieces**
-- **hidden slots** - set slots which will always be set to a hidden item
-  (and also not count towards **max missing pieces**)
+Sets tab changes
+================
+
+- incomplete sets are no longer faded out and reflect missing slots
+- when applying a set, the other (or missing) slots are hidden
+- set tooltips show how many pieces you have collected and which you're missing
+
+
+Extra sets & filtering
+======================
+
+- see extra sets (e.g. lookalike sets from other classes that you can use)
+- filter by the amount of missing pieces
+- ignored slots (ignore slots you don't care about - they won't count as missing)
+- skipped slots (those are never applied, e.g. if you like to mix and match items)
+- hidden slots (those are always hidden - maybe you don't like helmets)
+- showing only favorite sets (and their variants)
+
+(You can save the ignored, skipped and hidden slots per-character by enabling "Use character profile".)
