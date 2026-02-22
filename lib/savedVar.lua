@@ -1,7 +1,7 @@
 ---@class Addon
 local addon = select(2, ...)
 
----@class SavedVarLib.Var
+---@class SavedVarTable
 ---@field version integer
 ---@field data table
 
@@ -12,17 +12,12 @@ local addon = select(2, ...)
 ---@param migrations table<integer, fun(data: table)>
 ---@return TData
 function addon.loadSavedVar(name, version, defaults, migrations)
-    ---@type SavedVarLib.Var
+    ---@type SavedVarTable
     local var
 
     ---@return boolean
     local function ensureUpToDate()
-        if var.version == version then
-            -- up to date
-            return true
-        end
-
-        if type(version) ~= 'number' then
+        if type(var.version) ~= 'number' then
             -- invalid version
             return false
         end
@@ -54,10 +49,13 @@ function addon.loadSavedVar(name, version, defaults, migrations)
             var.version = version
 
             return true
+        elseif var.version > version then
+            -- newer version - addon downgraded?
+            return false
         end
 
-        -- newer version - addon downgraded?
-        return false
+        -- all is ok
+        return true
     end
 
     -- init saved variable

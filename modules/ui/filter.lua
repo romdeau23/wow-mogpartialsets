@@ -1,9 +1,9 @@
 ---@class Addon
 local addon = select(2, ...)
----@class UI.FilterModule
-local filter, private = addon.module('ui', 'filter'), {}
----@type ConfigModule
-local config = addon.namespace('config')
+local filter, private = addon.module(), {}
+addon.ui.filter = filter
+
+local config = addon.config
 local setSlotOptions = {
     INVSLOT_HEAD, INVSLOT_SHOULDER, INVSLOT_BACK, INVSLOT_CHEST,
     INVSLOT_TABARD, INVSLOT_WRIST, INVSLOT_HAND, INVSLOT_WAIST,

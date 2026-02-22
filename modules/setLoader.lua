@@ -1,12 +1,12 @@
 ---@class Addon
 local addon = select(2, ...)
----@class SetLoaderModule
-local setLoader, private = addon.module('setLoader'), {}
+local setLoader, private = addon.module(), {}
+addon.setLoader = setLoader
 
 ---@type SetLoaderModule.SetMap
 local loadedSets = {}
 
----@type QueueWorkerLib.Worker
+---@type QueueWorker
 local loadSetWorker
 local loadSetWorkerFrameTimeLimit = 0.005
 local loadSetWorkerUpdateFreq = 0.25

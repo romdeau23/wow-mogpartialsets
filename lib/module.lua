@@ -1,25 +1,23 @@
 ---@class Addon
 local addon = select(2, ...)
-local addonName = select(1, ...)
+---@type Module[]
 local modules = {}
 
----@param ... string
 ---@return table
-function addon.module(...)
-    local module = addon.namespace(...)
+function addon.module()
+    ---@class Module
+    ---@field init fun()?
+    local module = {}
+
     table.insert(modules, module)
 
     return module
 end
 
-addon.on('ADDON_LOADED', function (name)
-    if name == addonName then
-        for _, module in ipairs(modules) do
-            if module.init then
-                module.init()
-            end
+addon.registerInitializer(function ()
+    for _, module in ipairs(modules) do
+        if module.init then
+            module.init()
         end
-
-        return false
     end
 end)

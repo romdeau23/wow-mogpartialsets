@@ -1,7 +1,8 @@
 ---@class Addon
 local addon = select(2, ...)
----@class UIModule
-local ui = addon.module('ui')
+local ui = addon.module()
+addon.ui = ui
+
 local hooked = false
 
 function ui.hook()

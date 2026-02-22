@@ -1,7 +1,6 @@
 ---@class Addon
 local addon = select(2, ...)
----@class MainModule
-local main, private = addon.module('main'), {}
+local main, private = addon.module(), {}
 
 function main.init()
     addon.on('TRANSMOGRIFY_OPEN', private.onTransmogrifyOpen)

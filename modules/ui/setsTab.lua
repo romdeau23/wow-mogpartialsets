@@ -1,11 +1,10 @@
 ---@class Addon
 local addon = select(2, ...)
----@class UI.SetsTabModule
-local setsTab, private = addon.module('ui', 'setsTab'), {}
----@type SetLoaderModule
-local setLoader = addon.namespace('setLoader')
----@type ConfigModule
-local config = addon.namespace('config')
+local setsTab, private = addon.module(), {}
+addon.ui.setsTab = setsTab
+
+local setLoader = addon.setLoader
+local config = addon.config
 local setsFrameRef
 ---@type table<number, Enum.TransmogOutfitSlot[]>?
 local outflitSlotCache

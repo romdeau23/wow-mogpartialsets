@@ -1,7 +1,6 @@
 ---@class Addon
-local addon = select(2, ...)
----@class ConstLib
-local const = addon.namespace('const')
+local addon, const = select(2, ...), {}
+addon.const = const
 
 ---https://warcraft.wiki.gg/wiki/ClassId
 ---@type table<number, number> classId => mask

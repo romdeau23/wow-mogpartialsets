@@ -1,61 +1,56 @@
 ---@class Addon
-local addon = select(2, ...)
+local addon, gameEvent = select(2, ...), {}
+addon.gameEvent = gameEvent
+
 local frame = CreateFrame('Frame')
-local listenerMap = {}
+---@type table<string, table<function, true>>
+local listeners = {}
 
 ---@param eventName string
 ---@param callback function
-function addon.on(eventName, callback)
-    if not listenerMap[eventName] then
+function gameEvent.on(eventName, callback)
+    if not listeners[eventName] then
         frame:RegisterEvent(eventName)
-        listenerMap[eventName] = {}
+        listeners[eventName] = {}
     end
 
-    table.insert(listenerMap[eventName], callback)
+    listeners[eventName][callback] = true
 end
 
 ---@param eventName string
 ---@param callback function
-function addon.off(eventName, callback)
-    if listenerMap[eventName] then
-        for i, listener in ipairs(listenerMap[eventName]) do
-            if callback == listener then
-                table.remove(listenerMap[eventName], i)
+function gameEvent.off(eventName, callback)
+    if listeners[eventName] then
+        listeners[eventName][callback] = nil
 
-                if #listenerMap[eventName] == 0 then
-                    frame:UnregisterEvent(eventName)
-                    listenerMap[eventName] = nil
-                end
-
-                return true
-            end
+        if next(listeners[eventName]) == nil then
+            frame:UnregisterEvent(eventName)
+            listeners[eventName] = nil
         end
     end
-
-    return false
 end
 
 frame:SetScript('OnEvent', function (_, eventName, ...)
-    local toClear
+    local selfRemoved = false
 
-    for index, listener in ipairs(listenerMap[eventName]) do
-        if listener(...) == false then
-            if not toClear then
-                toClear = {}
+    for listener in pairs(listeners[eventName]) do
+        local success, result = pcall(listener, ...)
+
+        if success then
+            if result == false then
+                listeners[eventName][listener] = nil
+                selfRemoved = true
             end
-
-            table.insert(toClear, index)
+        else
+            CallErrorHandler(result)
         end
     end
 
-    if toClear then
-        for i = #toClear, 1, -1 do
-            table.remove(listenerMap[eventName], toClear[i])
-        end
-
-        if #listenerMap[eventName] == 0 then
-            frame:UnregisterEvent(eventName)
-            listenerMap[eventName] = nil
-        end
+    if selfRemoved and next(listeners[eventName]) == nil then
+        frame:UnregisterEvent(eventName)
+        listeners[eventName] = nil
     end
 end)
+
+-- convenience shortcut
+addon.on = gameEvent.on

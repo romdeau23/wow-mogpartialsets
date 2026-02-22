@@ -1,25 +1,25 @@
 ---@class Addon
 local addon = select(2, ...)
 
----@class QueueWorkerLib.Task
+---@class QueueWorker.Task
 ---@field key any
 ---@field args Packed<any>
----@field next QueueWorkerLib.Task?
+---@field next QueueWorker.Task?
 
 ---@param executor function should do the work, receives any extra args passed to add()
 ---@param updater fun() should do any related updates, called after a batch of tasks is done
 ---@param frameTimeLimit number max work duration per 1 frame (must be > 0)
 ---@param updaterFreq number max frequency of calling the updater (must be >= 0)
----@return QueueWorkerLib.Worker
+---@return QueueWorker
 function addon.createQueueWorker(executor, updater, frameTimeLimit, updaterFreq)
     assert(frameTimeLimit > 0)
     assert(updaterFreq >= 0)
 
-    ---@class QueueWorkerLib.Worker
+    ---@class QueueWorker
     local worker = {}
-    ---@type QueueWorkerLib.Task?
+    ---@type QueueWorker.Task?
     local nextTask
-    ---@type QueueWorkerLib.Task?
+    ---@type QueueWorker.Task?
     local lastTask
     ---@type table<any, true>
     local pendingKeyMap = {}

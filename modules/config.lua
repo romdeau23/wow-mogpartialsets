@@ -1,13 +1,38 @@
 ---@class Addon
 local addon = select(2, ...)
----@class ConfigModule
-local config, private = addon.module('config'), {}
+local config, private = addon.module(), {}
+addon.config = config
+
 ---@type ConfigModule.Config
 local configVar
 ---@type ConfigModule.Profile
 local profileVar
 ---@type ConfigModule.Slots
 local effectiveSlots
+
+---@type ConfigModule.Slots
+local DEFAULT_SLOTS = {
+    ignored = {
+        [INVSLOT_BACK] = true,
+        [INVSLOT_WRIST] = true,
+    },
+    skipped = {},
+    hidden = {},
+}
+---@type ConfigModule.Config
+local DEFAULT_CONFIG = {
+    showExtraSets = true,
+    onlyFavorite = false,
+    favoriteVariants = false,
+    hideItemsNotInSet = true,
+    maxMissingPieces = 2,
+    slots = DEFAULT_SLOTS,
+}
+---@type ConfigModule.Profile
+local DEFAULT_PROFILE = {
+    enabled = false,
+    slots = nil,
+}
 
 ---@class (exact) ConfigModule.Config
 ---@field showExtraSets boolean
@@ -25,32 +50,6 @@ local effectiveSlots
 ---@field ignored table<number, true>
 ---@field skipped table<number, true>
 ---@field hidden table<number, true>
-
----@type ConfigModule.Slots
-local DEFAULT_SLOTS = {
-    ignored = {
-        [INVSLOT_BACK] = true,
-        [INVSLOT_WRIST] = true,
-    },
-    skipped = {},
-    hidden = {},
-}
-
----@type ConfigModule.Config
-local DEFAULT_CONFIG = {
-    showExtraSets = true,
-    onlyFavorite = false,
-    favoriteVariants = false,
-    hideItemsNotInSet = true,
-    maxMissingPieces = 2,
-    slots = DEFAULT_SLOTS,
-}
-
----@type ConfigModule.Profile
-local DEFAULT_PROFILE = {
-    enabled = false,
-    slots = nil,
-}
 
 function config.init()
     configVar = addon.loadSavedVar(

@@ -1,17 +1,5 @@
 ---@meta
 
----@class Addon
----@field const ConstLib
----@field event EventBusLib
----@field main MainModule
----@field config ConfigModule
----@field setLoader SetLoaderModule
----@field ui UIModule
-
----@class UIModule
----@field filter UI.FilterModule
----@field setsTab UI.SetsTabModule
-
 ---@type number
 LE_TRANSMOG_SET_FILTER_COLLECTED = nil
 ---@type number
