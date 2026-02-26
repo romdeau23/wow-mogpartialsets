@@ -30,6 +30,10 @@ lib/module.lua
 lib/pack.lua
 lib/queueWorker.lua
 lib/savedVar.lua
+lib/locale.lua
+locales/enUS.lua
+locales/zhCN.lua
+locales/zhTW.lua
 modules/config.lua
 modules/setLoader.lua
 modules/ui.lua
