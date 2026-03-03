@@ -32,8 +32,8 @@ lib/queueWorker.lua
 lib/savedVar.lua
 lib/locale.lua
 locales/enUS.lua
-locales/zhCN.lua
-locales/zhTW.lua
+locales/zhCN.lua [AllowLoadTextLocale zhCN]
+locales/zhTW.lua [AllowLoadTextLocale zhTW]
 modules/config.lua
 modules/setLoader.lua
 modules/ui.lua

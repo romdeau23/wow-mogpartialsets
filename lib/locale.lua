@@ -8,33 +8,21 @@ addon.locale = locale
 local translations = {}
 local currentLocale = GetLocale()
 
----Register translations for a locale
----@param localeCode string The locale code (e.g., "enUS", "zhCN")
----@param strings table<string, string> The translation strings
+---@param localeCode string the locale code (e.g., 'enUS', 'zhCN')
+---@param strings table<string, string> the translation strings
 function locale.register(localeCode, strings)
     translations[localeCode] = strings
 end
 
----Get a localized string
----@param key string The translation key
----@return string The localized string or the key if not found
+---@param key string the translation key
+---@return string # the localized string or the key if not found
 function locale.get(key)
-    local localeStrings = translations[currentLocale]
-    
-    if localeStrings and localeStrings[key] then
-        return localeStrings[key]
-    end
-    
-    -- Fallback to enUS
-    local fallbackStrings = translations["enUS"]
-    if fallbackStrings and fallbackStrings[key] then
-        return fallbackStrings[key]
-    end
-    
-    -- Return the key if no translation found
-    return key
+    return (
+        translations[currentLocale] and translations[currentLocale][key]
+        or translations['enUS'][key] -- fallback to enUS
+        or key -- translation not found
+    )
 end
 
--- Shorthand function
-local L = locale.get
-addon.L = L
+-- shortcut
+addon.L = locale.get
