@@ -3,6 +3,7 @@ local addon = select(2, ...)
 local setsTab, private = addon.module(), {}
 addon.ui.setsTab = setsTab
 
+local L = addon.L
 local setLoader = addon.setLoader
 local config = addon.config
 local setsFrameRef
@@ -659,13 +660,13 @@ function private.updateTooltip(model)
         lastLine:SetText(string.format('|c%s%s %d/%d|r', color, statusText, collectedSlots, totalSlots))
 
         if not isComplete then
-            local missingSlotsText = string.format('(Missing: %s)', private.formatSlotList(missingSlots, 3))
+            local missingSlotsText = string.format(L('MISSING_SLOTS'), private.formatSlotList(missingSlots, 3))
             GameTooltip:AddLine(missingSlotsText, 0.5, 0.5, 0.5)
         end
     end
 
     if IsAltKeyDown() then
-        GameTooltip:AddLine(string.format('(Set ID: %d)', set.info.setID), 0.5, 0.5, 0.5)
+        GameTooltip:AddLine(string.format(L('SET_ID'), set.info.setID), 0.5, 0.5, 0.5)
     end
 
     GameTooltip:Show()
@@ -696,7 +697,7 @@ function private.formatSlotList(slots, limit)
     local suffix = ''
 
     if #slots > limit then
-        suffix = string.format(' and %d more', #slots - limit)
+        suffix = string.format(L('AND_MORE'), #slots - limit)
     end
 
     return string.format('%s%s', table.concat(slotNames, ', '), suffix)

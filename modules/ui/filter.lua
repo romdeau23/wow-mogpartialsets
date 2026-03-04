@@ -3,6 +3,7 @@ local addon = select(2, ...)
 local filter, private = addon.module(), {}
 addon.ui.filter = filter
 
+local L = addon.L
 local config = addon.config
 local setSlotOptions = {
     INVSLOT_HEAD, INVSLOT_SHOULDER, INVSLOT_BACK, INVSLOT_CHEST,
@@ -52,7 +53,7 @@ function private.setupButton(filterButton)
 
         -- show extra sets
         local showExtraSetsCheckbox = rootDescription:CreateCheckbox(
-            'Show extra sets',
+            L('SHOW_EXTRA_SETS'),
             function () return config.showExtraSets() end,
             function () config.setShowExtraSets(not config.showExtraSets()) end
         )
@@ -72,26 +73,26 @@ function private.setupButton(filterButton)
             end
         end
 
-        local enabledExtraSetsTooltipFn = getOptionTooltipFn('Show extra sets', 'Show all the sets you can use, not just your class sets.')
+        local enabledExtraSetsTooltipFn = getOptionTooltipFn(L('SHOW_EXTRA_SETS'), L('SHOW_EXTRA_SETS_TOOLTIP'))
 
         showExtraSetsCheckbox:SetTooltip(function(tooltip, elementDescription)
             enabledExtraSetsTooltipFn(tooltip)
 
             if addon.ui.setsTab.isPveOrPvpFiltered() then
-                GameTooltip_AddErrorLine(tooltip, 'Suppressed by PvE/PvP filter')
+                GameTooltip_AddErrorLine(tooltip, L('SHOW_EXTRA_SETS_SUPPRESSED'))
             end
         end)
 
         -- only favorites
         rootDescription:CreateCheckbox(
-            'Only favorites',
+            L('ONLY_FAVORITES'),
             function () return config.onlyFavorite() end,
             function () config.setOnlyFavorite(not config.onlyFavorite()) end
         )
 
         -- include favorite variants
         local favoriteVariantsCheckbox = rootDescription:CreateCheckbox(
-            'Include favorite variants',
+            L('INCLUDE_FAVORITE_VARIANTS'),
             function () return config.favoriteVariants() end,
             function () config.setFavoriteVariants(not config.favoriteVariants()) end
         )
@@ -100,15 +101,15 @@ function private.setupButton(filterButton)
 
         -- hide items not in set
         local hideItemsNotInSetCheckbox = rootDescription:CreateCheckbox(
-            'Hide items not in set',
+            L('HIDE_ITEMS_NOT_IN_SET'),
             function () return config.hideItemsNotInSet() end,
             function () config.setHideItemsNotInSet(not config.hideItemsNotInSet()) end
         )
 
-        hideItemsNotInSetCheckbox:SetTooltip(getOptionTooltipFn('Hide items not in set', 'When applying a set, hide the other slots.'))
+        hideItemsNotInSetCheckbox:SetTooltip(getOptionTooltipFn(L('HIDE_ITEMS_NOT_IN_SET'), L('HIDE_ITEMS_NOT_IN_SET_TOOLTIP')))
 
         -- max missing pieces
-        local maxMissingPiecesButton = rootDescription:CreateButton('Max missing pieces')
+        local maxMissingPiecesButton = rootDescription:CreateButton(L('MAX_MISSING_PIECES'))
 
         for value = 0, 10 do
             maxMissingPiecesButton:CreateRadio(
@@ -123,9 +124,9 @@ function private.setupButton(filterButton)
         end
 
         -- ignored slots
-        local ignoredSlotsButton = rootDescription:CreateButton('Ignored slots')
+        local ignoredSlotsButton = rootDescription:CreateButton(L('IGNORED_SLOTS'))
 
-        ignoredSlotsButton:SetTooltip(getOptionTooltipFn('Ignored slots', 'These slots don\'t count towards max missing pieces.'))
+        ignoredSlotsButton:SetTooltip(getOptionTooltipFn(L('IGNORED_SLOTS'), L('IGNORED_SLOTS_TOOLTIP')))
 
         for _, invSlotId in ipairs(setSlotOptions) do
             ignoredSlotsButton:CreateCheckbox(
@@ -135,16 +136,16 @@ function private.setupButton(filterButton)
             )
         end
 
-        ignoredSlotsButton:CreateButton('Reset', function ()
+        ignoredSlotsButton:CreateButton(L('RESET'), function ()
             config.ignoredSlots.clear()
 
             return MenuResponse.Refresh
         end)
 
         -- skipped slots
-        local skippedSlotsButton = rootDescription:CreateButton('Skipped slots')
+        local skippedSlotsButton = rootDescription:CreateButton(L('SKIPPED_SLOTS'))
 
-        skippedSlotsButton:SetTooltip(getOptionTooltipFn('Skipped slots', 'These slots are never changed.'))
+        skippedSlotsButton:SetTooltip(getOptionTooltipFn(L('SKIPPED_SLOTS'), L('SKIPPED_SLOTS_TOOLTIP')))
 
         for _, invSlotId in ipairs(armorSlotOptions) do
             skippedSlotsButton:CreateCheckbox(
@@ -154,16 +155,16 @@ function private.setupButton(filterButton)
             )
         end
 
-        skippedSlotsButton:CreateButton('Reset', function ()
+        skippedSlotsButton:CreateButton(L('RESET'), function ()
             config.skippedSlots.clear()
 
             return MenuResponse.Refresh
         end)
 
         -- hidden slots
-        local hiddenSlotsButton = rootDescription:CreateButton('Hidden slots')
+        local hiddenSlotsButton = rootDescription:CreateButton(L('HIDDEN_SLOTS'))
 
-        hiddenSlotsButton:SetTooltip(getOptionTooltipFn('Hidden slots', 'These slots are always hidden (and also don\'t count as missing).'))
+        hiddenSlotsButton:SetTooltip(getOptionTooltipFn(L('HIDDEN_SLOTS'), L('HIDDEN_SLOTS_TOOLTIP')))
 
         for _, invSlotId in ipairs(setSlotOptions) do
             hiddenSlotsButton:CreateCheckbox(
@@ -173,7 +174,7 @@ function private.setupButton(filterButton)
             )
         end
 
-        hiddenSlotsButton:CreateButton('Reset', function ()
+        hiddenSlotsButton:CreateButton(L('RESET'), function ()
             config.hiddenSlots.clear()
 
             return MenuResponse.Refresh
@@ -183,15 +184,15 @@ function private.setupButton(filterButton)
 
         -- use character profile
         local useCharacterProfileCheckbox = rootDescription:CreateCheckbox(
-            'Use character profile',
+            L('USE_CHARACTER_PROFILE'),
             function () return config.characterProfileEnabled() end,
             function () config.setCharacterProfileEnabled(not config.characterProfileEnabled()) end
         )
 
-        useCharacterProfileCheckbox:SetTooltip(getOptionTooltipFn('Use character profile', 'Save the ignored, skipped and hidden slots per-character.'))
+        useCharacterProfileCheckbox:SetTooltip(getOptionTooltipFn(L('USE_CHARACTER_PROFILE'), L('USE_CHARACTER_PROFILE_TOOLTIP')))
 
         -- reload button
-        rootDescription:CreateButton('Reload sets', function ()
+        rootDescription:CreateButton(L('RELOAD_SETS'), function ()
             addon.setLoader.clearSetData()
             addon.ui.setsTab.refreshIfVisible()
         end)
