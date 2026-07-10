@@ -23,6 +23,8 @@ addon.locale.register('enUS', {
     ['RESET'] = 'Reset',
 
     -- sets tab tooltip
+    ['SET_COMPLETE'] = 'Complete',
+    ['SET_INCOMPLETE'] = 'Incomplete',
     ['MISSING_SLOTS'] = '(Missing: %s)',
     ['SET_ID'] = '(Set ID: %d)',
     ['AND_MORE'] = ' and %d more',

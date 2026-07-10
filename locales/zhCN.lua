@@ -23,6 +23,8 @@ addon.locale.register('zhCN', {
     ['RESET'] = '重置',
 
     -- sets tab tooltip
+    ['SET_COMPLETE'] = '完整',
+    ['SET_INCOMPLETE'] = '不完整',
     ['MISSING_SLOTS'] = '（缺少：%s）',
     ['SET_ID'] = '（套装 ID：%d）',
     ['AND_MORE'] = ' 等另外 %d 件',

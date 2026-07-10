@@ -37,4 +37,6 @@ LEGSSLOT = nil
 FEETSLOT = nil
 
 ---@type string
+RETRIEVING_ITEM_INFO = nil
+---@type string
 SEARCH_LOADING_TEXT = nil

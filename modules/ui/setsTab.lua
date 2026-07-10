@@ -13,7 +13,7 @@ local outflitSlotCache
 local hiddenSourceCache = {}
 ---@type UI.SetsTabModule.SetListInfo?
 local currentSetListInfo
-local lastTooltipModel
+local lastSetTooltip
 ---@type table
 local loadingIndicator
 
@@ -38,6 +38,11 @@ local loadingIndicator
 ---@field missingSlotsKey string
 ---@field favorite boolean
 
+---@class (exact) UI.SetsTabModule.SourceData
+---@field numCollected integer
+---@field numTotal integer
+---@field primaryAppearances TransmogSetPrimaryAppearanceInfo[]
+
 ---@param setsFrame table
 ---@diagnostic disable: duplicate-set-field
 function setsTab.hook(setsFrame)
@@ -47,7 +52,6 @@ function setsTab.hook(setsFrame)
 
     -- override model mixin methods
     local originalUpdateSet = TransmogSetModelMixin.UpdateSet
-    local originalRefreshTooltip = TransmogSetModelMixin.RefreshTooltip
     local originalOnMouseDown = TransmogSetModelMixin.OnMouseDown
 
     function TransmogSetModelMixin:UpdateSet()
@@ -64,8 +68,57 @@ function setsTab.hook(setsFrame)
     end
 
     function TransmogSetModelMixin:RefreshTooltip()
-        originalRefreshTooltip(self)
-        private.updateTooltip(self)
+        if not self.elementData then
+            return
+        end
+
+        lastSetTooltip = self
+        GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
+
+        local sourceData = self.elementData.sourceData --[[@as UI.SetsTabModule.SourceData]]
+        local quality = private.getSetQuality(sourceData.primaryAppearances)
+
+        if not quality then
+            GameTooltip_AddErrorLine(GameTooltip, RETRIEVING_ITEM_INFO)
+            GameTooltip:Show()
+
+            return
+        end
+
+        local setInfo = self.elementData.set --[[@as TransmogSetInfo]]
+        local qualityColor = ColorManager.GetColorDataForItemQuality(quality)
+
+		if qualityColor then
+			GameTooltip:SetText(setInfo.name, qualityColor.r, qualityColor.g, qualityColor.b)
+		else
+			GameTooltip:SetText(setInfo.name)
+		end
+
+        if setInfo.label then
+            GameTooltip_AddNormalLine(GameTooltip, setInfo.label)
+        end
+
+        local set = setLoader.getSet(setInfo.setID)
+
+        if set then
+            local collectedSlots, totalSlots, missingSlots = private.getSetProgress(set)
+            local isComplete = (#missingSlots == 0)
+            local statusText = isComplete and L('SET_COMPLETE') or L('SET_INCOMPLETE')
+            local color = private.getSetProgressColor(collectedSlots, totalSlots)
+
+            GameTooltip:AddLine(string.format('|c%s%s %d/%d|r', color, statusText, collectedSlots, totalSlots))
+
+            if not isComplete then
+                local missingSlotsText = string.format(L('MISSING_SLOTS'), private.formatSlotList(missingSlots, 3))
+                GameTooltip_AddDisabledLine(GameTooltip, missingSlotsText)
+            end
+        end
+
+        if IsAltKeyDown() then
+            GameTooltip:AddLine(string.format(L('SET_ID'), setInfo.setID), 0.5, 0.5, 0.5)
+        end
+
+        GameTooltip:Show()
     end
 
     function TransmogSetModelMixin:OnMouseDown(button)
@@ -203,7 +256,7 @@ end
 ---@param set SetLoaderModule.Set
 ---@param stats UI.SetsTabModule.SetStats
 ---@param filter UI.SetsTabModule.Filter
----@return table
+---@return UI.SetsTabModule.SourceData
 function private.buildSourceData(set, stats, filter)
     local primaryAppearances = {}
 
@@ -313,8 +366,17 @@ function private.generateSetList(sets, filter)
     local isPrefiltered = setsTab.isPveOrPvpFiltered()
 
     for setId, set in pairs(sets) do
-        local collectedSlots, totalSlots, missingSlots = private.getEffectiveSetProgress(set)
-        local missingSlotCount = #missingSlots
+        local collectedSlots, totalSlots, missingSlots = private.getSetProgress(set)
+
+        local relevantMissingSlots = {}
+
+        for _, invSlotId in ipairs(missingSlots) do
+            if not filter.ignoredSlots[invSlotId] and not filter.hiddenSlots[invSlotId] then
+                table.insert(relevantMissingSlots, invSlotId)
+            end
+        end
+
+        local missingSlotCount = #relevantMissingSlots
         local isCollected = totalSlots > 0 and missingSlotCount == 0
 
         if
@@ -331,7 +393,7 @@ function private.generateSetList(sets, filter)
             setListInfo.stats[setId] = {
                 collected = collectedSlots,
                 total = totalSlots,
-                missingSlotsKey = private.tableValuesToCacheKey(missingSlots),
+                missingSlotsKey = private.tableValuesToCacheKey(relevantMissingSlots),
                 favorite = set.info.favorite,
             }
 
@@ -383,33 +445,6 @@ function private.getSetProgress(set)
             collected = collected + 1
         else
             table.insert(missing, invSlotId)
-        end
-    end
-
-    return collected, total, missing
-end
-
----@param set SetLoaderModule.Set
----@return integer collected
----@return integer total
----@return number[] missing
-function private.getEffectiveSetProgress(set)
-    local collected = 0
-    local total = 0
-    local missing = {}
-
-    for invSlotId, slot in pairs(set.slots) do
-        if
-            not config.ignoredSlots.has(invSlotId)
-            and not config.hiddenSlots.has(invSlotId)
-        then
-            total = total + 1
-
-            if slot.usableSourceId then
-                collected = collected + 1
-            else
-                table.insert(missing, invSlotId)
-            end
         end
     end
 
@@ -628,48 +663,9 @@ end
 
 function private.refreshSetTooltip()
     -- prevent a tooltip stuck on "Retrieving item information" (base UI bug)
-    if setsFrameRef and setsFrameRef:IsVisible() and lastTooltipModel and lastTooltipModel:IsMouseOver() then
-        lastTooltipModel:RefreshTooltip()
+    if setsFrameRef and setsFrameRef:IsVisible() and lastSetTooltip and lastSetTooltip:IsMouseOver() then
+        lastSetTooltip:RefreshTooltip()
     end
-end
-
-function private.updateTooltip(model)
-    if not model.elementData then
-        return
-    end
-
-    lastTooltipModel = model
-
-    local set = setLoader.getSet(model.elementData.set.setID)
-
-    if not set then
-        return
-    end
-
-    local collectedSlots, totalSlots, missingSlots = private.getSetProgress(set)
-
-    local numLines = GameTooltip:NumLines()
-    local lastLine = _G['GameTooltipTextLeft' .. numLines]
-    local lastText = lastLine and lastLine:GetText()
-
-    if lastText == TRANSMOG_SET_COMPLETE or lastText == TRANSMOG_SET_INCOMPLETE then
-        local isComplete = (#missingSlots == 0)
-        local statusText = isComplete and TRANSMOG_SET_COMPLETE or TRANSMOG_SET_INCOMPLETE
-        local color = private.getSetProgressColor(collectedSlots, totalSlots)
-
-        lastLine:SetText(string.format('|c%s%s %d/%d|r', color, statusText, collectedSlots, totalSlots))
-
-        if not isComplete then
-            local missingSlotsText = string.format(L('MISSING_SLOTS'), private.formatSlotList(missingSlots, 3))
-            GameTooltip:AddLine(missingSlotsText, 0.5, 0.5, 0.5)
-        end
-    end
-
-    if IsAltKeyDown() then
-        GameTooltip:AddLine(string.format(L('SET_ID'), set.info.setID), 0.5, 0.5, 0.5)
-    end
-
-    GameTooltip:Show()
 end
 
 ---@param slots number[]
@@ -701,6 +697,18 @@ function private.formatSlotList(slots, limit)
     end
 
     return string.format('%s%s', table.concat(slotNames, ', '), suffix)
+end
+
+---@param primaryAppearances TransmogSetPrimaryAppearanceInfo[]
+---@return Enum.ItemQuality?
+function private.getSetQuality(primaryAppearances)
+    for _, apperance in ipairs(primaryAppearances) do
+        local sourceInfo = C_TransmogCollection.GetSourceInfo(apperance.appearanceID)
+
+        if sourceInfo and sourceInfo.quality then
+            return sourceInfo.quality
+        end
+    end
 end
 
 ---@param collected integer

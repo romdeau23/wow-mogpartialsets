@@ -16,7 +16,7 @@ Sets tab changes
 
 - incomplete sets are no longer faded out and reflect missing slots
 - when applying a set, the other (or missing) slots are hidden
-- set tooltips show how many pieces you have collected and which you're missing
+- set tooltips are shorter, only listing progress and missing slot names
 
 
 Extra sets & filtering
