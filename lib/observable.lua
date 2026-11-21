@@ -39,15 +39,11 @@ function addon.createObservable()
         local selfRemoved = false
 
         for listener in pairs(listeners[eventName]) do
-            local success, result = pcall(listener, ...)
+            local success, result = xpcall(listener, CallErrorHandler, ...)
 
-            if success then
-                if result == false then
-                    listeners[eventName][listener] = nil
-                    selfRemoved = true
-                end
-            else
-                CallErrorHandler(result)
+            if success and result == false then
+                listeners[eventName][listener] = nil
+                selfRemoved = true
             end
         end
 

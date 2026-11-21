@@ -16,11 +16,7 @@ addon.on('ADDON_LOADED', function (name)
         loaded = true
 
         for _, initializer in ipairs(initializers) do
-            local success, result = pcall(initializer)
-
-            if not success then
-                CallErrorHandler(result)
-            end
+            xpcall(initializer, CallErrorHandler)
         end
 
         return false

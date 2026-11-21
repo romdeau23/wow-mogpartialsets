@@ -37,7 +37,7 @@ function addon.createQueueWorker(executor, updater, frameTimeLimit, updaterFreq)
     ---@return Packed<any> result
     function execute(...)
         local startTime = GetTimePreciseSec()
-        local result = addon.pack(pcall(executor, ...))
+        local result = addon.pack(xpcall(executor, CallErrorHandler, ...))
         spentTime = spentTime + (GetTimePreciseSec() - startTime)
 
         return result
@@ -80,17 +80,13 @@ function addon.createQueueWorker(executor, updater, frameTimeLimit, updaterFreq)
         end
 
         while nextTask and spentTime < frameTimeLimit do
-            local result = execute(unpack(nextTask.args, 1, nextTask.args.n))
+            execute(unpack(nextTask.args, 1, nextTask.args.n))
 
             pendingKeyMap[nextTask.key] = nil
             nextTask = nextTask.next
 
             if not nextTask then
                 lastTask = nil
-            end
-
-            if not result[1] then
-                CallErrorHandler(result[2])
             end
         end
 
@@ -119,7 +115,7 @@ function addon.createQueueWorker(executor, updater, frameTimeLimit, updaterFreq)
             scheduleUpdater()
 
             if not result[1] then
-                CallErrorHandler(result[2])
+                return
             end
 
             return unpack(result, 2, result.n)

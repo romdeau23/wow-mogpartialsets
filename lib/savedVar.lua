@@ -62,17 +62,13 @@ function addon.loadSavedVar(name, version, defaults, migrations)
     if type(_G[name]) == 'table' then
         var = _G[name]
 
-        local success, result = pcall(ensureUpToDate)
+        local success, result = xpcall(ensureUpToDate, CallErrorHandler)
 
         if not success or not result then
             -- reset var on crash or failure
             table.wipe(var)
             var.version = version
             var.data = CopyTable(defaults)
-        end
-
-        if not success then
-            CallErrorHandler(result)
         end
     else
         var = {
