@@ -624,7 +624,7 @@ function private.getOutfitSlotsForInventorySlot(invSlotId)
         outflitSlotCache = {}
 
         for _, slotInfo in ipairs(C_TransmogOutfitInfo.GetAllSlotLocationInfo() or {}) do
-            local slotInvSlotId = GetInventorySlotInfo(slotInfo.slotName)
+            local slotInvSlotId = C_PaperDollInfo.GetInventorySlotInfo(slotInfo.slotName)
 
             if not outflitSlotCache[slotInvSlotId] then
                 outflitSlotCache[slotInvSlotId] = {}

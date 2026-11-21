@@ -1,6 +1,6 @@
-## Interface: 120007, 120100
+## Interface: 120105, 120107
 ## Title: MogPartialSets
-## Version: 4.2.0
+## Version: 4.2.1
 ## Author: romdeau23
 ## Notes: Makes it easy to see and apply partially collected sets in the transmog UI
 ## SavedVariables: MogPartialSetsAddonConfig
